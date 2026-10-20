@@ -1,4 +1,5 @@
 from app.models.admin_account import AdminAccount
+from app.models.admin_user import AdminUser
 from app.models.appointment import Appointment
 from app.models.availability import Availability
 from app.models.chat_message import ChatMessage
@@ -15,6 +16,7 @@ from app.models.webhook_event import WebhookEvent
 
 __all__ = [
     "AdminAccount",
+    "AdminUser",
     "Appointment",
     "Availability",
     "ChatMessage",
