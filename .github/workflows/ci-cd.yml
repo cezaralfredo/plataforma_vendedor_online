@@ -78,7 +78,7 @@ jobs:
         run: |
           pytest tests/ -v --tb=short --cov=app --cov-report=xml --cov-fail-under=60 || {
             echo "::error::Pytest falhou. Exibindo testes que falharam:"
-            pytest tests/ --lf -vv --tb=long
+            pytest tests/ --lf -v --tb=short
             exit 1
           }
         env:
