@@ -59,7 +59,7 @@ def test_build_payment_notification_payload(db_session: Session):
 
 
 @pytest.mark.asyncio
-async def test_notification_service_dispatch_to_n8n(db_session: Session):
+async def test_notification_service_dispatch_to_webhook(db_session: Session):
     entities = seed_data(db_session)
     appointment = seed_appointment(db_session, entities)
     payment = seed_payment(db_session, appointment)
@@ -72,7 +72,7 @@ async def test_notification_service_dispatch_to_n8n(db_session: Session):
     mock_resp.raise_for_status = MagicMock()
 
     with (
-        patch.object(settings, "n8n_webhook_url", "https://n8n.test/webhook/payment"),
+        patch.object(settings, "notification_webhook_url", "https://webhook.test/webhook/payment"),
         patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
     ):
         mock_post.return_value = mock_resp
@@ -83,7 +83,7 @@ async def test_notification_service_dispatch_to_n8n(db_session: Session):
         assert dispatched is True
         assert mock_post.called
         call_args = mock_post.call_args
-        assert call_args[0][0] == "https://n8n.test/webhook/payment"
+        assert call_args[0][0] == "https://webhook.test/webhook/payment"
         sent_json = call_args[1]["json"]
         assert sent_json["event"] == "payment.confirmed"
         assert sent_json["delivery_id"] == delivery.id
@@ -113,10 +113,11 @@ async def test_notification_service_no_webhook_configured(db_session: Session):
     service = NotificationService(db_session)
 
     with (
-        patch.object(settings, "n8n_webhook_url", ""),
-        patch.object(settings, "hermes_webhook_url", ""),
         patch.object(settings, "notification_webhook_url", ""),
+        patch("app.services.whatsapp.gateway.WhatsAppGatewayService.send_text", new_callable=AsyncMock) as mock_send,
     ):
+        mock_send.return_value.success = False
+        mock_send.return_value.error = "WhatsApp não configurado"
         delivery = service.queue_payment_confirmed(appointment.id, payment.id)
         db_session.commit()
         dispatched = await service.dispatch_payment_confirmed(delivery.id)

@@ -45,7 +45,7 @@ def test_domain_example_produces_single_api_prefix():
 
 def test_registry_repository_example_is_complete():
     assert _env_example()["GITHUB_REPOSITORY"] == (
-        "cezaralfredo/plataforma_atende_agenda"
+        "cezaralfredo/plataforma_vendedor_online"
     )
 
 
@@ -90,11 +90,10 @@ def test_pull_requests_build_all_runtime_images_without_publishing():
         for step in validation["steps"]
         if step.get("uses", "").startswith("docker/build-push-action@")
     ]
-    assert len(builds) == 3
+    assert len(builds) == 2
     assert {step["with"]["file"] for step in builds} == {
         "./Dockerfile",
         "./Dockerfile.backup",
-        "./mcp_gateway/Dockerfile",
     }
     assert all(step["with"]["push"] is False for step in builds)
 
@@ -107,7 +106,7 @@ def test_ci_does_not_claim_an_automatic_production_deploy():
 
 def test_portainer_neon_stack_has_only_the_external_database_api():
     compose = _yaml("docker-compose.portainer-neon.yml")
-    assert set(compose["services"]) == {"api", "mcp-gateway"}
+    assert set(compose["services"]) == {"api"}
     assert "volumes" not in compose
 
 
@@ -142,25 +141,6 @@ def test_portainer_neon_stack_uses_proxy_and_private_mcp_networks():
         "external": True,
         "name": "${AGENDA_MCP_NETWORK:-agenda_mcp_internal}",
     }
-
-
-def test_portainer_gateway_uses_traceable_image_and_readiness_check():
-    required_tag = "${MCP_GATEWAY_IMAGE_TAG:?Defina MCP_GATEWAY_IMAGE_TAG no Portainer}"
-    for path in (
-        "docker-compose.portainer-npm.yml",
-        "docker-compose.portainer-neon.yml",
-    ):
-        gateway = _yaml(path)["services"]["mcp-gateway"]
-        assert "build" not in gateway
-        assert required_tag in gateway["image"]
-        assert "http://localhost:8080/ready" in gateway["healthcheck"]["test"][3]
-
-
-def test_ci_validates_and_publishes_mcp_gateway_image():
-    workflow = Path(".github/workflows/ci-cd.yml").read_text(encoding="utf-8")
-
-    assert "mcp_gateway/Dockerfile" in workflow
-    assert "${{ env.IMAGE_NAME }}-mcp-gateway" in workflow
 
 
 def test_shipped_compose_defaults_use_the_current_asaas_production_endpoint():

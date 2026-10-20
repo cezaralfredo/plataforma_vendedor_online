@@ -59,7 +59,7 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Run linting (ruff)
-        run: ruff check app/ mcp_gateway/ tests/
+        run: ruff check app/ tests/
 
       - name: Run type checking (mypy)
         run: mypy app/ --ignore-missing-imports
@@ -123,14 +123,6 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.backup
-          push: false
-          platforms: linux/amd64
-
-      - name: Build MCP Gateway image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./mcp_gateway/Dockerfile
           push: false
           platforms: linux/amd64
 
@@ -206,27 +198,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.backup_meta.outputs.tags }}
           labels: ${{ steps.backup_meta.outputs.labels }}
-
-      - name: Extract MCP Gateway metadata
-        id: gateway_meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-mcp-gateway
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix=
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push MCP Gateway image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./mcp_gateway/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.gateway_meta.outputs.tags }}
-          labels: ${{ steps.gateway_meta.outputs.labels }}
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v1

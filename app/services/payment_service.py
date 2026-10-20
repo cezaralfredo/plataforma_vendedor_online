@@ -188,6 +188,59 @@ class PaymentService:
         if amount_cents is not None and amount_cents != value_cents:
             raise ValueError("Charge amount must match the service price")
 
+        from app.services.company_settings_service import CompanySettingsService
+        from app.services.payment_gateways import ChargeRequest, get_payment_gateway
+
+        company_settings = CompanySettingsService(self.db).get_or_create_default()
+        active_gateway = (company_settings.default_gateway or "asaas").lower().strip()
+
+        if active_gateway != "asaas":
+            gateway = get_payment_gateway(active_gateway, company_settings.gateway_credentials)
+            user = appointment.user
+            charge_desc = (
+                f"{appointment.service.name} - {appointment.professional.name}"
+                if (appointment.service and appointment.professional)
+                else f"Agendamento #{appointment.id}"
+            )
+            req = ChargeRequest(
+                amount_cents=value_cents,
+                user_id=appointment.user_id,
+                customer_name=user.name if user else "Cliente",
+                customer_phone=getattr(user, "phone", None),
+                customer_email=getattr(user, "email", None),
+                customer_cpf=getattr(user, "cpf_cnpj", None),
+                description=charge_desc,
+                billing_type=billing_type,
+                order_ref=f"appt:{appointment.id}",
+                appointment_id=appointment.id,
+            )
+            result = await gateway.create_charge(req)
+
+            locked_appointment = self._locked_appointment_query(appointment_id).first()
+            if not locked_appointment:
+                raise ValueError("Agendamento não encontrado")
+
+            payment = Payment(
+                appointment_id=appointment.id,
+                user_id=appointment.user_id,
+                asaas_payment_id=result.gateway_payment_id,
+                amount_cents=value_cents,
+                billing_type=billing_type,
+                status=result.status,
+                invoice_url=result.invoice_url or result.pix_copy_paste,
+            )
+            self.db.add(payment)
+            locked_appointment.status = (
+                "confirmed"
+                if payment.status in {"received", "confirmed"}
+                else "awaiting_payment"
+            )
+            if locked_appointment.status == "awaiting_payment":
+                locked_appointment.expires_at = datetime.now(UTC) + timedelta(hours=24)
+            self.db.commit()
+            self.db.refresh(payment)
+            return payment
+
         external_reference = f"appointment:{appointment.id}"
         matches = await self.asaas.list_payments(
             external_reference=external_reference
@@ -374,3 +427,102 @@ class PaymentService:
             .order_by(Appointment.created_at.desc())
             .all()
         )
+
+    async def create_direct_charge(
+        self,
+        user_id: int,
+        amount_cents: int,
+        product_id: int | None = None,
+        description: str | None = None,
+        billing_type: str = "undefined",
+    ) -> Payment:
+        if amount_cents <= 0:
+            raise ValueError("O valor da cobrança deve ser maior que zero")
+
+        billing_type = billing_type.lower()
+        asaas_billing_type = billing_type.upper()
+        if asaas_billing_type not in {"PIX", "BOLETO", "CREDIT_CARD", "UNDEFINED"}:
+            raise ValueError("Invalid billing type")
+
+        charge_desc = description or "Pagamento de produto"
+        if product_id and not description:
+            from app.models.product import Product
+
+            prod = self.db.query(Product).filter(Product.id == product_id).first()
+            if prod:
+                charge_desc = f"Produto: {prod.name}"
+
+        from app.services.company_settings_service import CompanySettingsService
+        from app.services.payment_gateways import ChargeRequest, get_payment_gateway
+
+        company_settings = CompanySettingsService(self.db).get_or_create_default()
+        active_gateway = (company_settings.default_gateway or "asaas").lower().strip()
+
+        if active_gateway != "asaas":
+            gateway = get_payment_gateway(active_gateway, company_settings.gateway_credentials)
+            user = self.user_repo.get(user_id)
+            req = ChargeRequest(
+                amount_cents=amount_cents,
+                user_id=user_id,
+                customer_name=user.name if user else "Cliente",
+                customer_phone=getattr(user, "phone", None),
+                customer_email=getattr(user, "email", None),
+                customer_cpf=getattr(user, "cpf_cnpj", None),
+                description=charge_desc,
+                billing_type=billing_type,
+                order_ref=f"prod:{product_id}:user:{user_id}",
+                product_id=product_id,
+            )
+            result = await gateway.create_charge(req)
+            payment = Payment(
+                user_id=user_id,
+                product_id=product_id,
+                appointment_id=None,
+                description=charge_desc,
+                asaas_payment_id=result.gateway_payment_id,
+                amount_cents=amount_cents,
+                billing_type=billing_type,
+                status=result.status,
+                invoice_url=result.invoice_url or result.pix_copy_paste,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            )
+            self.db.add(payment)
+            self.db.commit()
+            self.db.refresh(payment)
+            return payment
+
+        # Fluxo Asaas padrão
+        customer_id = await self.ensure_asaas_customer(user_id)
+        due_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        remote_payment = await self.asaas.create_payment(
+            customer_id=customer_id,
+            value=amount_cents / 100.0,
+            due_date=due_date,
+            description=charge_desc,
+            billing_type=asaas_billing_type,
+        )
+
+        payment_id = remote_payment.get("id")
+        remote_status = remote_payment.get("status")
+        payment = Payment(
+            user_id=user_id,
+            product_id=product_id,
+            appointment_id=None,
+            description=charge_desc,
+            asaas_payment_id=payment_id,
+            amount_cents=amount_cents,
+            billing_type=billing_type,
+            status=ASAAS_STATUS_MAP.get(remote_status, "pending") if isinstance(remote_status, str) else "pending",
+            invoice_url=remote_payment.get("invoiceUrl"),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        self.db.add(payment)
+        self.db.commit()
+        self.db.refresh(payment)
+        return payment
+
+    create_charge_for_appointment = create_charge
+

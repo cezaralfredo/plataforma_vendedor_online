@@ -61,14 +61,16 @@ API REST completa para gestão de agendamentos, profissionais, serviços e pagam
   - `meus_agendamentos` — lista agendamentos de um cliente
 - Autenticação via Bearer Token (`API_KEY`)
 
-### Hermes (Agentes de IA)
-- Configuração para orquestração de agentes via **Hermes**
-- Perfis pré-definidos:
-  - **Agendador** — gestão de reservas
-  - **Financeiro** — pagamentos e cobranças
-  - **Notificador** — comunicações (WhatsApp, etc.)
-  - **Orquestrador** — coordenação geral
-- Integração nativa com MCP da API
+### Camada de IA & Orquestração Nativa (Python)
+- Orquestrador inteligente (`SalesOrchestrator` / `SalonAIOrchestrator`) integrado nativamente em Python
+- Subagentes especializados de salão de beleza e estética:
+  - **Serviços & Agendamento** — cálculo dinâmico de slots, agendamento e cancelamento
+  - **Catálogo de Produtos** — produtos de beleza/homecare e envio de fotos
+  - **Checkout & Pagamento** — geração de PIX Copia e Cola / QR Code Asaas
+  - **Status de Pedidos & Agendamentos** — acompanhamento em tempo real
+  - **Suporte & Transbordo Humano** — detecção de intenção e link para atendente humano
+- Suporte a múltiplos provedores LLM com fallback automático (OpenAI, Anthropic, Gemini, Groq, Ollama)
+- Integração nativa com WhatsApp (WAHA, Evolution API, Meta Cloud API) e transcrição de áudio com Whisper
 
 ---
 
@@ -81,7 +83,7 @@ API REST completa para gestão de agendamentos, profissionais, serviços e pagam
 | Banco | PostgreSQL 16 |
 | Migrações | Alembic |
 | Pagamentos | Asaas API (sandbox/produção) |
-| IA/Agentes | MCP (Model Context Protocol) + Hermes |
+| IA/Agentes | Orquestrador Nativo Python + Subagentes + MCP |
 | Testes | pytest |
 | Container | Docker Compose |
 
@@ -139,13 +141,12 @@ plataforma_atende_agenda/
 │       ├── payment_state_service.py
 │       ├── professional_service.py
 │       ├── service_service.py
-│       └── user_service.py
+│       ├── user_service.py
+│       ├── ai/               # Orquestrador e subagentes inteligentes
+│       └── whatsapp/         # Gateways de mensageria (WAHA, Evolution, Meta)
 ├── alembic/              # Migrações de banco
-├── hermes/               # Configuração agentes IA
-│   ├── config.yaml
-│   └── profiles/
 ├── tests/                # Testes automatizados
-├── docker-compose.yml    # PostgreSQL
+├── docker-compose.prod.yml
 ├── requirements.txt
 └── .env                  # Variáveis de ambiente (não versionado)
 ```
@@ -324,47 +325,33 @@ pytest tests/ -v
 | `marcar_notificado` | Marca agendamento como notificado |
 | `meus_agendamentos` | Lista agendamentos de um cliente |
 
-### Hermes (Orquestração de Agentes)
+### Mensageria WhatsApp & Orquestração de IA Nativa
 
-**Arquitetura com MCP Gateway (Recomendado para Produção):**
+A plataforma integra nativamente recepção de webhooks, transcrição de áudio via Whisper, Coexistence Mode (atendente humano) e orquestração de subagentes especialistas:
 
 ```
-Hermes (host/VM) ──► MCP Gateway (Docker) ──► API (Docker)
-     │                    │                      │
-     │ gateway toolset    │ FastAPI proxy        │ /mcp endpoint
-     │                    │ injeta API_KEY       │
-     ▼                    ▼                      ▼
-  Profis YAML         http://mcp-gateway:8080  PostgreSQL
+WhatsApp (WAHA / Evolution / Meta)
+      │
+      ▼  Webhook HTTP POST
+FastAPI Webhook Handler (/api/whatsapp/webhook/*)
+      │
+      ▼  Background Tasks
+SellerAIService & Coexistence Guard
+      │
+      ▼
+SalesOrchestrator (Multi-Provider LLM: OpenAI / Anthropic / Gemini / Groq / Ollama)
+      │
+      ├── ServiceSubagent (Agendamentos, Slots Livres, Profissionais)
+      ├── CatalogSubagent (Produtos de Beleza & Estética, Envio de Fotos)
+      ├── CheckoutSubagent (PIX Copia e Cola / QR Code Asaas)
+      ├── OrderStatusSubagent (Status de Agendamentos e Compras)
+      └── SupportSubagent (Transbordo Humano Inteligente)
 ```
 
-O **MCP Gateway** isola o Hermes do ambiente interno da API:
-- Hermes usa apenas o toolset `gateway` (HTTP nativo)
-- Gateway injeta `Authorization: Bearer <API_KEY>` automaticamente
-- Gateway valida `X-Gateway-Key` para autenticação Hermes→Gateway
-- Elimina conflitos de namespace, auth e estado entre Hermes e API
-
-```bash
-# 1. Configure ~/.hermes/config.yaml (baseado em hermes/config.yaml.example)
-# 2. Defina MCP_GATEWAY_KEY no Portainer (variável da stack)
-# 3. No NPM, crie Proxy Host para mcp-gateway:8080
-# 4. Execute agente
-hermes run --profile agendador
-```
-
-Perfis disponíveis em `hermes/profiles/` (usam `gateway` toolset):
-- `agendador.yaml`
-- `financeiro.yaml`
-- `notificador.yaml`
-- `orquestrador.yaml`
-
-Configuração do Gateway em `hermes/config.yaml.example`:
-```yaml
-gateway:
-  base_url: "https://mcp.seudominio.com"
-  timeout: 30
-  headers:
-    X-Gateway-Key: "${MCP_GATEWAY_KEY}"
-```
+**Webhooks Suportados:**
+- **WAHA:** `/api/whatsapp/webhook/waha`
+- **Evolution API:** `/api/whatsapp/webhook/evolution`
+- **Meta Cloud API:** `/api/whatsapp/webhook/meta`
 
 ---
 
@@ -390,9 +377,8 @@ WebhookEvent (tabela de idempotência para webhooks)
 - Em produção, a documentação interativa é desativada e `/metrics` também exige Bearer. `/health` indica vida do processo e `/ready` confirma acesso ao PostgreSQL.
 - O sandbox atual do Asaas é `https://api-sandbox.asaas.com/v3` e a produção usa `https://api.asaas.com/v3`. Clientes e cobranças usam referências externas estáveis para reconciliação.
 - Horários sem offset são interpretados em `APP_TIMEZONE=America/Sao_Paulo`; reservas não pagas vencidas liberam automaticamente o slot.
-- Em produção, o Hermes usa exclusivamente o domínio do MCP Gateway com `X-Gateway-Key`; o gateway injeta o Bearer interno da API e `/ready` confirma o upstream.
-- A CI executa testes no PostgreSQL, migrações, Ruff e MyPy antes de publicar as imagens principal, `-backup` e `-mcp-gateway`. A migração aborta se já existirem agendamentos ativos sobrepostos.
-- Após cada publicação, valide `/ready` da API, `/ready` do gateway, `tools/list` pelo gateway e o backup mais recente. Faça um teste de restauração periodicamente em ambiente isolado.
+- A CI executa testes no PostgreSQL, migrações, Ruff e MyPy antes de publicar as imagens principal e `-backup`. A migração aborta se já existirem agendamentos ativos sobrepostos.
+- Após cada publicação, valide `/ready` da API e o backup mais recente. Faça um teste de restauração periodicamente em ambiente isolado.
 
 ## Deploy com Portainer
 

@@ -244,5 +244,35 @@ Para a operação comercial e gestão do **Vendedor Online**, o domínio princip
   - Criação da migração Alembic `d8e9f0a1b2c3` para criação de `company_settings` e `products` com integridade e índices.
   - Ajuste de triggers no CI/CD (`.github/workflows/ci-cd.yml`) para a branch `main`.
   - Ajuste de fallbacks de imagens Docker no `docker-compose.portainer-npm.yml` e `docker-compose.portainer-neon.yml` para `cezaralfredo/plataforma_vendedor_online`.
-- [ ] **Etapa 5:** Teste fim a fim de conversação (agendamento com e sem pagamento obrigatório, compra de produtos).
-- [ ] **Etapa 6:** Roteamento multi-cliente dinâmico por instância/phone_number_id no banco.
+- [x] **Fase 1 (Migração Python Pura):**
+  - Implementação nativa da camada de mensageria WhatsApp (`WAHA`, `Evolution`, `Meta Cloud API`) com transcrição Whisper e Coexistence Mode.
+  - Implementação nativa do Orquestrador de IA (`SalesOrchestrator`) com Subagentes Especializados para Salão de Beleza & Estética (Serviços, Catálogo, Checkout PIX, Status, Suporte Humano).
+  - Background Worker para outbox de notificações e confirmação via WhatsApp.
+- [x] **Fase 2 (Purga de Legados):**
+  - Remoção definitiva de `hermes/`, `n8n/`, `mcp_gateway/`, `docker-compose.n8n.yml`, `.env.hermes.example`.
+  - Desacoplamento da API, configuração, MCP tools e CI/CD.
+  - Verificação de 100% de testes passando e conformidade com Ruff.
+- [x] **Fase 3 (Migração de Banco Alembic):**
+  - Criação da migração linear `e9f0a1b2c3d4` para `chat_messages`, suporte a pagamentos avulsos de produtos em `payments`, campos de entrega em `users`, peso `weight_kg` em `products` e configurações WAHA/Coexistência/IA em `company_settings`.
+- [x] **Fase 4 (Testes Fim a Fim / Integração com os Canais):**
+  - Implementação da suíte de testes de integração ponta a ponta em [`tests/test_channels_e2e_integration.py`](file:///e:/Projetos/plataforma_vendedor_online/tests/test_channels_e2e_integration.py).
+  - Cenário E2E WAHA: agendamento conversacional com IA (`ServiceSubagent`) persistindo reserva e histórico em `chat_messages`.
+  - Cenário E2E Evolution API: compra de produtos de estética/homecare (`CheckoutSubagent`) gerando cobrança PIX via Asaas.
+  - Cenário E2E Meta Cloud API: transbordo humanizado (`SupportSubagent`) ativando silenciamento temporário da IA (`ai_paused_until`), fallback seguro e comando de retomada pelo cliente.
+  - Cenário E2E Modo Coexistência: detecção de intervenção manual do atendente via app móvel WhatsApp Business (`fromMe: true`), aplicação de pausa automática de 45 minutos e retomada por comando (`#ia`).
+  - Cenário E2E Áudio Whisper: recebimento de áudio via WhatsApp, transcrição assíncrona e orquestração do diálogo.
+  - Cenário E2E Notificação Ativa Asaas: webhook de pagamento PIX confirmado despachando confirmação direta via gateway WhatsApp.
+  - Cenários E2E HTTP Endpoints: validação dos webhooks HTTP `/api/webhooks/whatsapp/waha`, `/api/webhooks/whatsapp/evolution` e verificação de challenge e inbound em `/api/webhooks/whatsapp/meta`.
+  - 100% de testes da suíte completa passando e verificação do Ruff linter limpa.
+- [x] **Área Bancária & Multi-Gateway Financeiro (Padrão plataforma_vendedor_ia):**
+  - Implementação unificada dos Gateways Bancários em [`app/services/payment_gateways/`](file:///e:/Projetos/plataforma_vendedor_online/app/services/payment_gateways/):
+    - `DirectPixGateway`: geração de BRCode PIX padrão EMVCo do Banco Central (CRC16-CCITT) com taxa zero em conta bancária própria.
+    - `EfiPayGateway` (antiga Gerencianet): API oficial PIX BACEN com OAuth2 e endpoints `/v2/cob`.
+    - `MercadoPagoGateway`: cobrança PIX com QR Code dinâmico, código copia-e-cola e link direto de checkout.
+    - `AsaasPaymentGateway`: integração completa com Asaas PJ (PIX, Webhook, QR Code).
+    - `ManualPaymentGateway`: pagamentos presenciais/balcão (dinheiro, maquininha de cartão).
+  - Suporte a multi-gateway dinâmico em [`PaymentService`](file:///e:/Projetos/plataforma_vendedor_online/app/services/payment_service.py) via `create_charge` e `create_direct_charge`.
+  - Integração do [`CheckoutSubagent`](file:///e:/Projetos/plataforma_vendedor_online/app/services/ai/subagents/checkout_subagent.py) com os gateways ativos para agendamentos e produtos.
+  - Notificação ativa via WhatsApp na confirmação de pagamentos de produtos no webhook bancário.
+  - Suíte de testes automatizados em [`tests/test_payment_gateways.py`](file:///e:/Projetos/plataforma_vendedor_online/tests/test_payment_gateways.py) (100% aprovada).
+- [ ] **Fase 5:** Roteamento multi-cliente dinâmico por instância/phone_number_id no banco.

@@ -1,28 +1,6 @@
 # Portainer CE + Nginx Proxy Manager + Neon PostgreSQL.
 # Define all required values in the Portainer Stack environment table.
 services:
-  mcp-gateway:
-    image: "${REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY:-cezaralfredo/plataforma_vendedor_online}-mcp-gateway:${MCP_GATEWAY_IMAGE_TAG:?Defina MCP_GATEWAY_IMAGE_TAG no Portainer}"
-    restart: unless-stopped
-    environment:
-      API_BASE_URL: http://api:8000
-      API_KEY: "${API_KEY:?Defina API_KEY no Portainer}"
-      GATEWAY_KEY: "${MCP_GATEWAY_KEY:?Defina MCP_GATEWAY_KEY no Portainer}"
-    expose:
-      - "8080"
-    networks:
-      npm:
-        aliases:
-          - mcp-gateway
-    depends_on:
-      api:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/ready', timeout=2).raise_for_status()"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
   api:
     image: "${REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY:-cezaralfredo/plataforma_vendedor_online}:${IMAGE_TAG:?Defina IMAGE_TAG no Portainer}"
     restart: unless-stopped
@@ -40,6 +18,8 @@ services:
       ASAAS_API_KEY: "${ASAAS_API_KEY:?Defina ASAAS_API_KEY no Portainer}"
       ASAAS_BASE_URL: "${ASAAS_BASE_URL:-https://api.asaas.com/v3}"
       ASAAS_WEBHOOK_TOKEN: "${ASAAS_WEBHOOK_TOKEN:?Defina ASAAS_WEBHOOK_TOKEN no Portainer}"
+      NOTIFICATION_WEBHOOK_URL: "${NOTIFICATION_WEBHOOK_URL:-}"
+      NOTIFICATION_WEBHOOK_TOKEN: "${NOTIFICATION_WEBHOOK_TOKEN:-}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
       TRIAGE_ENABLED: "${TRIAGE_ENABLED:-true}"
       TRIAGE_MODEL: "${TRIAGE_MODEL:-typesafe/jev-1.13}"

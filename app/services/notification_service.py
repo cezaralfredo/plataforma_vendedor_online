@@ -41,7 +41,7 @@ def format_payment_confirmation_message(appointment: Appointment, payment: Payme
 
 
 def build_payment_notification_payload(appointment: Appointment, payment: Payment) -> dict[str, Any]:
-    """Monta payload padronizado para envio ao n8n ou Hermes."""
+    """Monta payload padronizado para notificação de pagamento."""
     user = appointment.user
     service = appointment.service
     prof = appointment.professional
@@ -92,12 +92,8 @@ class NotificationService:
         self.db = db
 
     def get_effective_webhook_url(self) -> str:
-        """O n8n é o único orquestrador de entregas assíncronas da Agenda.
-
-        O Hermes mantém a inteligência e o transporte nativo do WhatsApp, mas
-        não expõe um webhook de entrega compatível com a API da Agenda.
-        """
-        return getattr(settings, "n8n_webhook_url", "")
+        """Retorna o webhook externo de notificações configurado ou string vazia para entrega direta via WhatsApp."""
+        return getattr(settings, "notification_webhook_url", "")
 
     def queue_payment_confirmed(self, appointment_id: int, payment_id: int) -> NotificationDelivery:
         """Registra a confirmação em uma outbox idempotente na mesma transação do pagamento."""
@@ -123,7 +119,7 @@ class NotificationService:
         return delivery
 
     def recover_unnotified_payment_confirmations(self, limit: int = 100) -> int:
-        """Recupera confirmações já registradas antes de uma indisponibilidade do n8n."""
+        """Recupera confirmações já registradas antes de uma indisponibilidade."""
         appointments = (
             self.db.query(Appointment)
             .join(Payment, Payment.appointment_id == Appointment.id)
@@ -191,21 +187,43 @@ class NotificationService:
         return payload
 
     async def dispatch_payment_confirmed(self, delivery_id: int) -> bool:
-        """Acorda o n8n, sem confundir aceitação do webhook com entrega da mensagem."""
+        """Dispara a confirmação de pagamento para o webhook externo ou diretamente via WhatsApp."""
         delivery = self.db.get(NotificationDelivery, delivery_id)
         if not delivery or delivery.status == "sent":
             return False
 
         webhook_url = self.get_effective_webhook_url()
         if not webhook_url:
+            # Envio direto pelo provedor WhatsApp ativo (WAHA, Evolution ou Meta)
+            full_payload = self.get_delivery_payload(delivery)
+            recipient_phone = (full_payload.get("chatId") or full_payload.get("whatsapp")) if full_payload else None
+            if full_payload and recipient_phone:
+                from app.services.whatsapp.gateway import WhatsAppGatewayService
+
+                gateway = WhatsAppGatewayService(self.db)
+                result = await gateway.send_text(
+                    phone=recipient_phone,
+                    text=full_payload.get("formatted_message", ""),
+                )
+                if result.success:
+                    self.claim_delivery(delivery.id)
+                    self.mark_delivery_sent(
+                        delivery_id=delivery.id,
+                        provider_message_id=result.message_id,
+                    )
+                    logger.info("Notificação de pagamento entregue via %s (msg_id: %s)", result.provider, result.message_id)
+                    return True
+                else:
+                    self.defer_delivery(delivery.id, result.error or "Falha no envio direto pelo provedor WhatsApp")
+                    return False
+
             logger.info(
-                "No notification webhook configured. Delivery %s remains pending for retry.",
+                "No notification webhook or recipient phone configured. Delivery %s remains pending.",
                 delivery.id,
             )
             return False
 
-        # Somente o identificador interno é enviado ao gatilho. O n8n busca os
-        # dados completos autenticado, evitando expor dados do cliente em logs.
+        # Somente o identificador interno é enviado ao gatilho externo, evitando expor dados do cliente em logs.
         payload = {"delivery_id": delivery.id, "event": delivery.event}
         headers = {"Content-Type": "application/json"}
         token = getattr(settings, "notification_webhook_token", "")

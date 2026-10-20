@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -38,7 +38,11 @@ def verify_webhook_signature(request: Request) -> bool:
 
 
 @router.post("/asaas")
-async def asaas_webhook(request: Request, db: Session = Depends(get_db)):
+async def asaas_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     if not verify_webhook_signature(request):
         raise HTTPException(status_code=401, detail="Invalid signature")
 
@@ -88,29 +92,40 @@ async def asaas_webhook(request: Request, db: Session = Depends(get_db)):
 
     if new_status:
         apply_payment_state(payment, new_status, datetime.now(UTC))
-        if new_status in {"received", "confirmed"} and payment.appointment and payment.appointment.status == "confirmed":
-            should_notify = True
-            appointment_id = payment.appointment_id
-            logger.info(
-                "Payment %s (%s) confirmed for appointment %s - pending customer notification",
-                payment.id,
-                payment.asaas_payment_id,
-                payment.appointment_id,
-            )
-            try:
-                db.add(
-                    NotificationLog(
-                        appointment_id=payment.appointment_id,
-                        type="payment_received",
-                    )
+        if new_status in {"received", "confirmed"}:
+            if payment.appointment and payment.appointment.status == "confirmed":
+                should_notify = True
+                appointment_id = payment.appointment_id
+                logger.info(
+                    "Payment %s (%s) confirmed for appointment %s - pending customer notification",
+                    payment.id,
+                    payment.asaas_payment_id,
+                    payment.appointment_id,
                 )
-            except Exception as e:
-                logger.warning("Could not create NotificationLog for webhook: %s", e)
-            # A outbox participa da mesma transação que a confirmação do Asaas.
-            # Assim, não existe pagamento confirmado sem uma notificação pendente.
-            delivery_id = NotificationService(db).queue_payment_confirmed(
-                payment.appointment_id, payment.id
-            ).id
+                try:
+                    db.add(
+                        NotificationLog(
+                            appointment_id=payment.appointment_id,
+                            type="payment_received",
+                        )
+                    )
+                except Exception as e:
+                    logger.warning("Could not create NotificationLog for webhook: %s", e)
+                # A outbox participa da mesma transação que a confirmação do Asaas.
+                delivery_id = NotificationService(db).queue_payment_confirmed(
+                    payment.appointment_id, payment.id
+                ).id
+            elif payment.product_id:
+                logger.info("Payment %s (%s) confirmed for product %s", payment.id, payment.asaas_payment_id, payment.product_id)
+                user = payment.user
+                client_phone = getattr(user, "whatsapp_number", None) or getattr(user, "phone", None)
+                if client_phone:
+                    from app.services.notification_service import format_payment_confirmation_message
+                    from app.services.whatsapp.gateway import WhatsAppGatewayService
+
+                    gateway = WhatsAppGatewayService(db)
+                    confirm_msg = format_payment_confirmation_message(None, payment)
+                    background_tasks.add_task(gateway.send_text, client_phone, confirm_msg)
     db.commit()
 
     if should_notify and appointment_id and delivery_id:

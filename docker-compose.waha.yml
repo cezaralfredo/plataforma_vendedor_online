@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: agenda_waha
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - WAHA_ZIP_LOGS=true
+      - WAHA_LOG_FORMAT=JSON
+      - WAHA_PRINT_QR=true
+      - WAHA_DASHBOARD_ENABLED=true
+      - WAHA_DASHBOARD_USERNAME=admin
+      - WAHA_DASHBOARD_PASSWORD=admin
+      # Webhook de retorno para a API do Vendedor IA
+      - WHATSAPP_HOOK_URL=http://agenda-api:8000/api/webhooks/whatsapp/waha
+      - WHATSAPP_HOOK_EVENTS=message
+    volumes:
+      - waha_sessions:/app/.sessions
+    networks:
+      - mcp_internal
+
+volumes:
+  waha_sessions:
+    driver: local
+
+networks:
+  mcp_internal:
+    external: true

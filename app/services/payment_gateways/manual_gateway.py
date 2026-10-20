@@ -1,7 +1,11 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from app.services.payment_gateways.base import BasePaymentGateway
+from app.services.payment_gateways.base import (
+    BasePaymentGateway,
+    ChargeRequest,
+    ChargeResult,
+)
 
 
 class ManualPaymentGateway(BasePaymentGateway):
@@ -9,19 +13,28 @@ class ManualPaymentGateway(BasePaymentGateway):
 
     async def create_charge(
         self,
-        appointment_id: int,
-        amount_cents: int,
-        customer_info: dict[str, Any],
+        request: ChargeRequest | None = None,
+        appointment_id: int | None = None,
+        amount_cents: int | None = None,
+        customer_info: dict[str, Any] | None = None,
         billing_type: str = "in_person",
-    ) -> dict[str, Any]:
-        return {
-            "gateway_payment_id": f"manual:{appointment_id}",
-            "status": "confirmed",
-            "invoice_url": None,
-            "pix_copy_paste": None,
-            "pix_qr_code_url": None,
-            "message": "Pagamento a ser realizado diretamente no estabelecimento",
-        }
+        **kwargs: Any,
+    ) -> ChargeResult:
+        if isinstance(request, ChargeRequest):
+            ref = f"manual:{request.order_ref or f'order:{request.user_id}'}"
+        elif appointment_id is not None:
+            ref = f"manual:{appointment_id}"
+        else:
+            ref = "manual:unknown"
+
+        return ChargeResult(
+            gateway_payment_id=ref,
+            status="confirmed",
+            invoice_url=None,
+            pix_copy_paste=None,
+            pix_qr_code_url=None,
+            raw_response={"message": "Pagamento no balcão / presencial"},
+        )
 
     async def check_status(self, gateway_payment_id: str) -> dict[str, Any]:
         return {

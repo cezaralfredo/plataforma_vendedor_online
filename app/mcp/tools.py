@@ -1,13 +1,9 @@
 import logging
-from datetime import datetime as dt_cls
-from datetime import timedelta
 
-import httpx
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.business_time import as_business_time
-from app.config import settings
 from app.models.appointment import Appointment
 from app.models.professional import Professional
 from app.models.professional_service import ProfessionalService
@@ -230,36 +226,6 @@ TOOL_DEFINITIONS = [
             "type": "object",
             "properties": {
                 "appointment_id": {"type": "integer", "description": "ID do agendamento"},
-            },
-            "required": ["appointment_id"],
-        },
-    },
-    {
-        "name": "solicitar_agendamento_orquestrador_n8n",
-        "description": "Aciona o Orquestrador central do n8n para criar o agendamento completo (busca/cadastra cliente, valida disponibilidade, cria reserva e gera cobrança PIX no Asaas) e retorna o link de pagamento e código PIX.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "client_name": {"type": "string", "description": "Nome completo do cliente"},
-                "phone": {"type": "string", "description": "Número do WhatsApp no formato 55XXXXXXXXXXX"},
-                "cpf_cnpj": {"type": "string", "description": "CPF ou CNPJ do cliente (apenas números ou formatado) para emissão de cobrança no Asaas (opcional/recomendado)"},
-                "professional_id": {"description": "ID do profissional (número) ou nome do profissional"},
-                "service_id": {"description": "ID do serviço (número) ou nome do serviço"},
-                "start_time": {"type": "string", "description": "Horário início (ISO 8601, ex: 2026-09-25T14:00:00-03:00)"},
-                "end_time": {"type": "string", "description": "Horário fim (ISO 8601). OPCIONAL: calculado automaticamente a partir da duração do serviço."},
-                "notes": {"type": "string", "description": "Observações (opcional)"},
-            },
-            "required": ["client_name", "phone", "professional_id", "service_id", "start_time"],
-        },
-    },
-    {
-        "name": "solicitar_cancelamento_n8n",
-        "description": "Aciona o Subagente de Cancelamento do n8n para cancelar a reserva, liberar o horário na agenda e disparar a notificação de cancelamento.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "appointment_id": {"type": "integer", "description": "ID do agendamento"},
-                "phone": {"type": "string", "description": "Número de WhatsApp do cliente (opcional)"},
             },
             "required": ["appointment_id"],
         },
@@ -853,172 +819,6 @@ async def handle_tool_call(name: str, arguments: dict, db: Session) -> dict:
                         }
                     ]
                 }
-
-        elif name == "solicitar_agendamento_orquestrador_n8n":
-            prof_arg = arguments["professional_id"]
-            if isinstance(prof_arg, str) and not prof_arg.isdigit():
-                prof_obj = db.query(Professional).filter(
-                    func.lower(Professional.name).like(f"%{prof_arg.strip().lower()}%")
-                ).first()
-                prof_id = prof_obj.id if prof_obj else 1
-            else:
-                prof_id = int(prof_arg)
-
-            serv_arg = arguments["service_id"]
-            if isinstance(serv_arg, str) and not serv_arg.isdigit():
-                serv_obj = db.query(Service).filter(
-                    func.lower(Service.name).like(f"%{serv_arg.strip().lower()}%")
-                ).first()
-                serv_id = serv_obj.id if serv_obj else 1
-            else:
-                serv_id = int(serv_arg)
-
-            # Auto-calcular end_time a partir da duração do serviço se não fornecido
-            computed_end_time = arguments.get("end_time")
-            if not computed_end_time:
-                service_obj = db.get(Service, serv_id)
-                if not service_obj:
-                    return {
-                        "isError": True,
-                        "content": [{"type": "text", "text": f"Serviço com ID {serv_id} não encontrado."}],
-                    }
-                try:
-                    duration = int(getattr(service_obj, "duration_minutes", 30))
-                except Exception:
-                    duration = 30
-                start_dt = dt_cls.fromisoformat(arguments["start_time"])
-                computed_end_dt = start_dt + timedelta(minutes=duration)
-                computed_end_time = computed_end_dt.isoformat()
-
-            from urllib.parse import urlparse
-            n8n_base = "http://n8n:5678"
-            webhook_url = getattr(settings, "n8n_webhook_url", None)
-            if webhook_url:
-                parsed_url = urlparse(webhook_url)
-                if parsed_url.scheme and parsed_url.netloc:
-                    n8n_base = f"{parsed_url.scheme}://{parsed_url.netloc}"
-            n8n_url = f"{n8n_base}/webhook/agendamento/criar"
-
-            payload = {
-                "client_name": arguments["client_name"],
-                "phone": arguments["phone"],
-                "cpf_cnpj": arguments.get("cpf_cnpj"),
-                "professional_id": prof_id,
-                "service_id": serv_id,
-                "start_time": arguments["start_time"],
-                "end_time": computed_end_time,
-                "notes": arguments.get("notes", "Agendado via Hermes WhatsApp"),
-            }
-
-            try:
-                async with httpx.AsyncClient(timeout=15.0) as client:
-                    resp = await client.post(n8n_url, json=payload)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        appt_id = data.get("appointment_id", "")
-                        amount = data.get("amount", "")
-                        payment_url = data.get("payment_url", "")
-                        pix_code = data.get("pix_code", "")
-                        msg = (
-                            f"Agendamento #{appt_id} orquestrado com sucesso pelo n8n!\n"
-                            f"Valor: {amount}\n"
-                            f"Link de Pagamento: {payment_url}\n"
-                            f"PIX Copia e Cola: {pix_code}"
-                        )
-                        return {"content": [{"type": "text", "text": msg}]}
-            except Exception as e:
-                logger.warning("Falha ao acionar orquestrador do n8n, executando fallback local: %s", e)
-
-            # Fallback local resiliente
-            user_service = UserService(db)
-            user = user_service.find_by_phone(arguments["phone"])
-            if not user and arguments.get("client_name"):
-                user = user_service.find_by_phone(arguments["client_name"])
-            if not user:
-                user = user_service.create(
-                    UserCreate(
-                        name=arguments["client_name"],
-                        phone=arguments["phone"],
-                        whatsapp_number=arguments["phone"],
-                        cpf_cnpj=arguments.get("cpf_cnpj"),
-                    )
-                )
-            elif arguments.get("cpf_cnpj") and not user.cpf_cnpj:
-                try:
-                    user_service.update(user.id, UserUpdate(cpf_cnpj=arguments.get("cpf_cnpj")))
-                except Exception as e:
-                    logger.warning("Não foi possível atualizar CPF no fallback: %s", e)
-            appointment_service = AppointmentService(db)
-            appointment = appointment_service.create(
-                AppointmentCreate(
-                    user_id=user.id,
-                    professional_id=prof_id,
-                    service_id=serv_id,
-                    start_time=arguments["start_time"],
-                    end_time=computed_end_time,
-                    notes=arguments.get("notes", "Agendado via Hermes WhatsApp"),
-                )
-            )
-
-            payment_service = PaymentService(db)
-            payment = await payment_service.create_charge(appointment.id, billing_type="PIX")
-
-            pix_code = ""
-            if payment.asaas_payment_id:
-                try:
-                    pix_res = await payment_service.asaas.get_pix_qr_code(payment.asaas_payment_id)
-                    pix_code = pix_res.get("payload", "")
-                except Exception as ex:
-                    logger.warning("Não foi possível buscar QR Code PIX: %s", ex)
-
-            invoice = payment.invoice_url or "Link não disponível"
-            lines = [
-                f"Reserva #{appointment.id} criada com sucesso!",
-                f"Status: {appointment.status}",
-                f"Valor: R$ {payment.amount_cents / 100:.2f}",
-                f"Link de Pagamento: {invoice}",
-            ]
-            if pix_code:
-                lines.append(f"PIX Copia e Cola: {pix_code}")
-
-            return {"content": [{"type": "text", "text": "\n".join(lines)}]}
-
-        elif name == "solicitar_cancelamento_n8n":
-            from urllib.parse import urlparse
-            n8n_base = "http://n8n:5678"
-            webhook_url = getattr(settings, "n8n_webhook_url", None)
-            if webhook_url:
-                parsed_url = urlparse(webhook_url)
-                if parsed_url.scheme and parsed_url.netloc:
-                    n8n_base = f"{parsed_url.scheme}://{parsed_url.netloc}"
-            n8n_url = f"{n8n_base}/webhook/agendamento/cancelar"
-
-            appointment_id = arguments["appointment_id"]
-            payload = {
-                "appointment_id": appointment_id,
-                "phone": arguments.get("phone", ""),
-            }
-
-            try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.post(n8n_url, json=payload)
-                    if resp.status_code == 200:
-                        return {
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": f"Reserva #{appointment_id} cancelada com sucesso via Subagente de Cancelamento do n8n.",
-                                }
-                            ]
-                        }
-            except Exception as e:
-                logger.warning("Falha ao acionar cancelamento via n8n, executando fallback local: %s", e)
-
-            appointment_service = AppointmentService(db)
-            appointment = appointment_service.cancel(appointment_id)
-            if not appointment:
-                return {"content": [{"type": "text", "text": "Reserva não encontrada."}]}
-            return {"content": [{"type": "text", "text": f"Reserva #{appointment.id} cancelada com sucesso."}]}
 
         elif name == "triar_mensagem":
             from app.services.triage_service import TriageService

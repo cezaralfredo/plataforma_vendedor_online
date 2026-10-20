@@ -21,9 +21,16 @@ class Payment(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    appointment_id: Mapped[int] = mapped_column(
-        ForeignKey("appointments.id"), nullable=False, index=True
+    appointment_id: Mapped[int | None] = mapped_column(
+        ForeignKey("appointments.id"), nullable=True, index=True
     )
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    product_id: Mapped[int | None] = mapped_column(
+        ForeignKey("products.id"), nullable=True, index=True
+    )
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     asaas_payment_id: Mapped[str] = mapped_column(String(50), nullable=True, unique=True, index=True)
     amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     billing_type: Mapped[str] = mapped_column(
@@ -42,3 +49,6 @@ class Payment(Base):
     )
 
     appointment = relationship("Appointment", back_populates="payments")
+    user = relationship("User", back_populates="payments")
+    product = relationship("Product", back_populates="payments")
+

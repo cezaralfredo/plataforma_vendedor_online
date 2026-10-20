@@ -4,7 +4,10 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class PaymentCreate(BaseModel):
-    appointment_id: int
+    appointment_id: int | None = None
+    product_id: int | None = None
+    user_id: int | None = None
+    description: str | None = None
     amount_cents: int | None = None
     billing_type: str = "pix"
 
@@ -21,7 +24,10 @@ class PaymentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    appointment_id: int
+    appointment_id: int | None = None
+    product_id: int | None = None
+    user_id: int | None = None
+    description: str | None = None
     asaas_payment_id: str | None = None
     amount_cents: int
     billing_type: str

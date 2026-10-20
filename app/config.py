@@ -18,8 +18,6 @@ class Settings(BaseSettings):
     asaas_base_url: str = "https://api-sandbox.asaas.com/v3"
     asaas_webhook_token: str = ""
 
-    n8n_webhook_url: str = ""
-    hermes_webhook_url: str = ""
     notification_webhook_url: str = ""
     notification_webhook_token: str = ""
     notification_delivery_lease_seconds: int = 300
