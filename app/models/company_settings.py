@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Integer, Numeric, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, Integer, Numeric, String, Text, func, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -45,7 +45,7 @@ class CompanySettings(Base):
     )
     # Modo Coexistência (WhatsApp Business App móvel + IA simultâneos)
     coexistence_enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default=func.true()
+        Boolean, nullable=False, default=True, server_default=true()
     )
     coexistence_pause_minutes: Mapped[int] = mapped_column(
         Integer, nullable=False, default=45, server_default="45"
