@@ -101,22 +101,22 @@ services:
     labels:
       - "traefik.enable=true"
       # API Principal
-      - "traefik.http.routers.api.rule=Host(`loja.anauedesign.com.br`) || Host(`api.loja.anauedesign.com.br`) || Host(`${DOMAIN}`) || Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.api.rule=Host(`ria.anauedesign.com.br`) || Host(`api.ria.anauedesign.com.br`) || Host(`loja.anauedesign.com.br`) || Host(`api.loja.anauedesign.com.br`) || Host(`${DOMAIN}`) || Host(`api.${DOMAIN}`)"
       - "traefik.http.routers.api.entrypoints=websecure"
       - "traefik.http.routers.api.tls.certresolver=letsencrypt"
       - "traefik.http.services.api.loadbalancer.server.port=8000"
       # Admin Panel (protegido por IP ou auth extra)
-      - "traefik.http.routers.admin.rule=(Host(`loja.anauedesign.com.br`) || Host(`api.loja.anauedesign.com.br`) || Host(`${DOMAIN}`) || Host(`api.${DOMAIN}`)) && PathPrefix(`/admin`)"
+      - "traefik.http.routers.admin.rule=(Host(`ria.anauedesign.com.br`) || Host(`api.ria.anauedesign.com.br`) || Host(`loja.anauedesign.com.br`) || Host(`api.loja.anauedesign.com.br`) || Host(`${DOMAIN}`) || Host(`api.${DOMAIN}`)) && PathPrefix(`/admin`)"
       - "traefik.http.routers.admin.entrypoints=websecure"
       - "traefik.http.routers.admin.tls.certresolver=letsencrypt"
       - "traefik.http.services.admin.loadbalancer.server.port=8000"
       # Webhooks Asaas (sem rate limit rigoroso)
-      - "traefik.http.routers.webhooks.rule=(Host(`loja.anauedesign.com.br`) || Host(`${DOMAIN}`) || Host(`api.${DOMAIN}`)) && PathPrefix(`/webhooks`)"
+      - "traefik.http.routers.webhooks.rule=(Host(`ria.anauedesign.com.br`) || Host(`loja.anauedesign.com.br`) || Host(`${DOMAIN}`) || Host(`api.${DOMAIN}`)) && PathPrefix(`/webhooks`)"
       - "traefik.http.routers.webhooks.entrypoints=websecure"
       - "traefik.http.routers.webhooks.tls.certresolver=letsencrypt"
       - "traefik.http.services.webhooks.loadbalancer.server.port=8000"
       # MCP (timeout maior para agents)
-      - "traefik.http.routers.mcp.rule=(Host(`loja.anauedesign.com.br`) || Host(`${DOMAIN}`) || Host(`api.${DOMAIN}`)) && PathPrefix(`/mcp`)"
+      - "traefik.http.routers.mcp.rule=(Host(`ria.anauedesign.com.br`) || Host(`loja.anauedesign.com.br`) || Host(`${DOMAIN}`) || Host(`api.${DOMAIN}`)) && PathPrefix(`/mcp`)"
       - "traefik.http.routers.mcp.entrypoints=websecure"
       - "traefik.http.routers.mcp.tls.certresolver=letsencrypt"
       - "traefik.http.services.mcp.loadbalancer.server.port=8000"

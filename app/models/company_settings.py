@@ -122,6 +122,97 @@ class CompanySettings(Base):
         JSON, nullable=False, default=dict
     )
 
+    # Propriedades de conveniência para PIX Direto / Bancos e Copia e Cola
+    @property
+    def pix_copy_paste(self) -> str | None:
+        custom = self.custom_settings or {}
+        creds = self.gateway_credentials or {}
+        return custom.get("pix_copy_paste") or creds.get("pix_copy_paste")
+
+    @pix_copy_paste.setter
+    def pix_copy_paste(self, value: str | None) -> None:
+        custom = dict(self.custom_settings or {})
+        custom["pix_copy_paste"] = value
+        self.custom_settings = custom
+        creds = dict(self.gateway_credentials or {})
+        creds["pix_copy_paste"] = value
+        self.gateway_credentials = creds
+
+    @property
+    def pix_key(self) -> str | None:
+        custom = self.custom_settings or {}
+        creds = self.gateway_credentials or {}
+        return custom.get("pix_key") or creds.get("pix_key")
+
+    @pix_key.setter
+    def pix_key(self, value: str | None) -> None:
+        custom = dict(self.custom_settings or {})
+        custom["pix_key"] = value
+        self.custom_settings = custom
+        creds = dict(self.gateway_credentials or {})
+        creds["pix_key"] = value
+        self.gateway_credentials = creds
+
+    @property
+    def pix_key_type(self) -> str | None:
+        custom = self.custom_settings or {}
+        creds = self.gateway_credentials or {}
+        return custom.get("pix_key_type") or creds.get("pix_key_type") or "cnpj"
+
+    @pix_key_type.setter
+    def pix_key_type(self, value: str | None) -> None:
+        custom = dict(self.custom_settings or {})
+        custom["pix_key_type"] = value
+        self.custom_settings = custom
+        creds = dict(self.gateway_credentials or {})
+        creds["pix_key_type"] = value
+        self.gateway_credentials = creds
+
+    @property
+    def pix_merchant_name(self) -> str | None:
+        custom = self.custom_settings or {}
+        creds = self.gateway_credentials or {}
+        return custom.get("pix_merchant_name") or creds.get("merchant_name") or self.company_name
+
+    @pix_merchant_name.setter
+    def pix_merchant_name(self, value: str | None) -> None:
+        custom = dict(self.custom_settings or {})
+        custom["pix_merchant_name"] = value
+        self.custom_settings = custom
+        creds = dict(self.gateway_credentials or {})
+        creds["merchant_name"] = value
+        self.gateway_credentials = creds
+
+    @property
+    def pix_merchant_city(self) -> str | None:
+        custom = self.custom_settings or {}
+        creds = self.gateway_credentials or {}
+        return custom.get("pix_merchant_city") or creds.get("merchant_city") or "Brasil"
+
+    @pix_merchant_city.setter
+    def pix_merchant_city(self, value: str | None) -> None:
+        custom = dict(self.custom_settings or {})
+        custom["pix_merchant_city"] = value
+        self.custom_settings = custom
+        creds = dict(self.gateway_credentials or {})
+        creds["merchant_city"] = value
+        self.gateway_credentials = creds
+
+    @property
+    def pix_bank_name(self) -> str | None:
+        custom = self.custom_settings or {}
+        creds = self.gateway_credentials or {}
+        return custom.get("pix_bank_name") or creds.get("bank_name")
+
+    @pix_bank_name.setter
+    def pix_bank_name(self, value: str | None) -> None:
+        custom = dict(self.custom_settings or {})
+        custom["pix_bank_name"] = value
+        self.custom_settings = custom
+        creds = dict(self.gateway_credentials or {})
+        creds["bank_name"] = value
+        self.gateway_credentials = creds
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

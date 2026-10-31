@@ -55,6 +55,8 @@ services:
           - vendedor-api
           - loja-api
           - loja-anauedesign
+          - ria-api
+          - ria-anauedesign
       mcp_internal:
 
 volumes:

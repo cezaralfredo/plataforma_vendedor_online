@@ -36,11 +36,34 @@ def get_payment_gateway(
             pix_key=creds.get("pix_key"),
             sandbox=bool(creds.get("sandbox")),
         )
-    elif provider_normalized in {"pix_direct", "direct_pix", "banco_direto", "chave_pix"}:
+    elif provider_normalized in {
+        "pix_direct",
+        "direct_pix",
+        "banco_direto",
+        "chave_pix",
+        "inter",
+        "banco_inter",
+        "nubank",
+        "itau",
+        "bradesco",
+        "santander",
+        "bb",
+        "banco_do_brasil",
+        "caixa",
+        "c6bank",
+        "pagbank",
+        "pagseguro",
+        "stone",
+        "pagarme",
+        "stripe",
+    }:
         return DirectPixGateway(
             pix_key=creds.get("pix_key"),
-            merchant_name=creds.get("merchant_name"),
-            merchant_city=creds.get("merchant_city"),
+            merchant_name=creds.get("merchant_name") or creds.get("pix_merchant_name"),
+            merchant_city=creds.get("merchant_city") or creds.get("pix_merchant_city"),
+            pix_copy_paste=creds.get("pix_copy_paste"),
+            pix_key_type=creds.get("pix_key_type"),
+            bank_name=creds.get("bank_name") or creds.get("pix_bank_name") or provider_normalized,
         )
     elif provider_normalized in {"manual", "none", "in_person", "balcao"}:
         return ManualPaymentGateway()

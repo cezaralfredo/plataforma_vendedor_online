@@ -111,10 +111,16 @@ class DirectPixGateway(BasePaymentGateway):
         pix_key: str | None = None,
         merchant_name: str | None = None,
         merchant_city: str | None = None,
+        pix_copy_paste: str | None = None,
+        pix_key_type: str | None = None,
+        bank_name: str | None = None,
     ):
         self.pix_key = (pix_key or "").strip()
         self.merchant_name = (merchant_name or "Minha Loja").strip()
         self.merchant_city = (merchant_city or "Brasil").strip()
+        self.pix_copy_paste = (pix_copy_paste or "").strip()
+        self.pix_key_type = (pix_key_type or "chave").strip()
+        self.bank_name = (bank_name or "Banco").strip()
 
     async def create_charge(
         self,
@@ -133,17 +139,21 @@ class DirectPixGateway(BasePaymentGateway):
             txid = f"APPT{request_or_appointment_id}"
             desc = f"Agendamento #{request_or_appointment_id}"
 
-        if not self.pix_key:
-            raise ValueError("Chave PIX da empresa não configurada para o gateway DirectPix.")
-
-        pix_copia_cola = generate_brcode_pix(
-            pix_key=self.pix_key,
-            merchant_name=self.merchant_name,
-            merchant_city=self.merchant_city,
-            amount=amount,
-            txid=txid,
-            description=desc,
-        )
+        if self.pix_key:
+            pix_copia_cola = generate_brcode_pix(
+                pix_key=self.pix_key,
+                merchant_name=self.merchant_name,
+                merchant_city=self.merchant_city,
+                amount=amount,
+                txid=txid,
+                description=desc,
+            )
+        elif self.pix_copy_paste:
+            pix_copia_cola = self.pix_copy_paste
+        else:
+            raise ValueError(
+                "Chave PIX ou Código Copia e Cola não configurado para o recebimento via PIX."
+            )
 
         return ChargeResult(
             gateway_payment_id=f"direct_pix:{txid}",
@@ -155,8 +165,11 @@ class DirectPixGateway(BasePaymentGateway):
                 "chave_pix": self.pix_key,
                 "titular": self.merchant_name,
                 "cidade": self.merchant_city,
+                "banco": self.bank_name,
+                "tipo_chave": self.pix_key_type,
                 "txid": txid,
                 "valor": amount,
+                "pix_copia_cola": pix_copia_cola,
             },
         )
 

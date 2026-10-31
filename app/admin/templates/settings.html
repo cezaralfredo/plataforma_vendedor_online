@@ -36,47 +36,371 @@
     </div>
 
     <!-- 1. Módulo Financeiro & Pagamentos -->
-    <div x-show="activeTab === 'financial'" class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-6">
-        <div>
-            <h3 class="text-sm font-semibold text-slate-900">Regras de Cobrança e Gateway</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Defina se os agendamentos exigem pagamento imediato ou se podem ser confirmados sem taxa prévia.</p>
+    <div x-show="activeTab === 'financial'" class="space-y-6">
+        <!-- Card 1: Regras Principais de Cobrança e Gateway/Banco -->
+        <div class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                        <i class="fas fa-university text-blue-600"></i>
+                        Regras de Cobrança e Bancos / Gateways
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Selecione seu banco principal ou gateway para recebimento dos pagamentos e defina a obrigatoriedade da taxa de agendamento.</p>
+                </div>
+                <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                    Módulo Financeiro
+                </span>
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2">
+                <!-- Payment Required Toggle -->
+                <div class="sm:col-span-2 rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 flex items-center justify-between hover:bg-slate-50 transition-all">
+                    <div>
+                        <p class="font-semibold text-slate-900 text-xs">Exigir Pagamento Antecipado para Agendar?</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Se desativado, o agendamento é confirmado na hora e o cliente pode pagar presencialmente no balcão.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" x-model="form.payment_required" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <!-- Seletor de Banco / Gateway Padrão -->
+                <div class="sm:col-span-1">
+                    <label class="block font-medium text-slate-700 text-xs mb-1.5">
+                        <i class="fas fa-building-columns mr-1 text-slate-400"></i>
+                        Banco ou Gateway Principal
+                    </label>
+                    <select x-model="form.default_gateway" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs font-medium focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 bg-white">
+                        <optgroup label="PIX Direto na Conta (Zero Taxas)">
+                            <option value="direct_pix">PIX Direto na Conta (Copia e Cola & Chave PIX Padrão BACEN)</option>
+                        </optgroup>
+                        <optgroup label="Bancos & Contas Digitais PJ">
+                            <option value="inter">Banco Inter (Inter Empresas / PIX Cobrança)</option>
+                            <option value="nubank">Nubank PJ (PIX Direto na Conta)</option>
+                            <option value="itau">Itaú Empresas (PIX & Boleto)</option>
+                            <option value="bradesco">Bradesco Net Empresa (PIX & Boleto)</option>
+                            <option value="banco_do_brasil">Banco do Brasil (BB Cobrança & PIX)</option>
+                            <option value="santander">Santander Negócios (PIX & Boleto)</option>
+                            <option value="caixa">Caixa Econômica Federal (PIX & Boleto)</option>
+                            <option value="c6bank">C6 Bank Empresas (PIX)</option>
+                            <option value="efipay">Efí Bank / Gerencianet (API PIX Oficial BACEN)</option>
+                        </optgroup>
+                        <optgroup label="Gateways de Pagamento Automatizados">
+                            <option value="asaas">Asaas (Cobranças PIX, Boleto e Cartão com Split)</option>
+                            <option value="mercadopago">Mercado Pago (PIX, Cartão e Linha de Crédito)</option>
+                            <option value="pagbank">PagBank / PagSeguro (PIX, Cartão e Link)</option>
+                            <option value="stone">Stone / Pagar.me (PIX e Cartão)</option>
+                            <option value="stripe">Stripe (Cartão de Crédito e Débito Global)</option>
+                        </optgroup>
+                        <optgroup label="Balcão / Outros">
+                            <option value="manual">Manual / Pagamento no Balcão (Dinheiro, Maquininha)</option>
+                            <option value="none">Nenhum (Sem cobrança)</option>
+                        </optgroup>
+                    </select>
+                    <p class="text-[11px] text-slate-500 mt-1">Define qual sistema de liquidação processará as cobranças dos clientes.</p>
+                </div>
+
+                <!-- Info Card do Gateway Selecionado -->
+                <div class="sm:col-span-1 rounded-xl border border-blue-100 bg-blue-50/50 p-3.5 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="flex h-6 w-6 items-center justify-center rounded-md bg-blue-600 text-white text-[11px]">
+                                <i class="fas fa-check"></i>
+                            </span>
+                            <span class="text-xs font-semibold text-blue-900" x-text="getGatewayTitle(form.default_gateway)"></span>
+                        </div>
+                        <p class="text-[11px] text-blue-700 mt-1.5 leading-relaxed" x-text="getGatewayDescription(form.default_gateway)"></p>
+                    </div>
+                    <div class="pt-2">
+                        <span class="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                            <i class="fas fa-bolt text-[9px]"></i>
+                            Compatível com PIX Copia e Cola
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Modalidades de Pagamento Aceitas -->
+                <div class="sm:col-span-2 border-t border-slate-100 pt-4">
+                    <label class="block font-medium text-slate-700 text-xs mb-2">
+                        <i class="fas fa-wallet mr-1 text-slate-400"></i>
+                        Modalidades de Pagamentos Aceitas na Empresa
+                    </label>
+                    <p class="text-[11px] text-slate-500 mb-3">Marque todas as formas de pagamento que sua empresa aceita para oferecer aos clientes no atendimento:</p>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <!-- PIX -->
+                        <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                               :class="form.accepted_payment_methods.includes('pix') ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                            <input type="checkbox" value="pix" x-model="form.accepted_payment_methods" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                            <div>
+                                <p class="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fab fa-pix text-teal-600"></i> PIX
+                                </p>
+                                <p class="text-[10px] text-slate-500">Instantâneo</p>
+                            </div>
+                        </label>
+
+                        <!-- Cartão de Crédito -->
+                        <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                               :class="form.accepted_payment_methods.includes('credit_card') ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                            <input type="checkbox" value="credit_card" x-model="form.accepted_payment_methods" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                            <div>
+                                <p class="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fas fa-credit-card text-blue-600"></i> Crédito
+                                </p>
+                                <p class="text-[10px] text-slate-500">Online ou Balcão</p>
+                            </div>
+                        </label>
+
+                        <!-- Cartão de Débito -->
+                        <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                               :class="form.accepted_payment_methods.includes('debit_card') ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                            <input type="checkbox" value="debit_card" x-model="form.accepted_payment_methods" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                            <div>
+                                <p class="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <i class="far fa-credit-card text-indigo-600"></i> Débito
+                                </p>
+                                <p class="text-[10px] text-slate-500">Maquininha</p>
+                            </div>
+                        </label>
+
+                        <!-- Boleto Bancário -->
+                        <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                               :class="form.accepted_payment_methods.includes('boleto') ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                            <input type="checkbox" value="boleto" x-model="form.accepted_payment_methods" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                            <div>
+                                <p class="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fas fa-barcode text-amber-600"></i> Boleto
+                                </p>
+                                <p class="text-[10px] text-slate-500">Compensação</p>
+                            </div>
+                        </label>
+
+                        <!-- No Local / Balcão -->
+                        <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                               :class="form.accepted_payment_methods.includes('in_person') ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                            <input type="checkbox" value="in_person" x-model="form.accepted_payment_methods" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                            <div>
+                                <p class="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fas fa-store text-emerald-600"></i> No Local
+                                </p>
+                                <p class="text-[10px] text-slate-500">Paga no atendimento</p>
+                            </div>
+                        </label>
+
+                        <!-- Dinheiro -->
+                        <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                               :class="form.accepted_payment_methods.includes('cash') ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                            <input type="checkbox" value="cash" x-model="form.accepted_payment_methods" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                            <div>
+                                <p class="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fas fa-money-bill-wave text-green-600"></i> Dinheiro
+                                </p>
+                                <p class="text-[10px] text-slate-500">Em espécie</p>
+                            </div>
+                        </label>
+
+                        <!-- Link Direto -->
+                        <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                               :class="form.accepted_payment_methods.includes('payment_link') ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                            <input type="checkbox" value="payment_link" x-model="form.accepted_payment_methods" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                            <div>
+                                <p class="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fas fa-link text-purple-600"></i> Link Direto
+                                </p>
+                                <p class="text-[10px] text-slate-500">WhatsApp / Checkout</p>
+                            </div>
+                        </label>
+
+                        <!-- Transferência / TED -->
+                        <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                               :class="form.accepted_payment_methods.includes('bank_transfer') ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                            <input type="checkbox" value="bank_transfer" x-model="form.accepted_payment_methods" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                            <div>
+                                <p class="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fas fa-money-check-dollar text-cyan-600"></i> TED / DOC
+                                </p>
+                                <p class="text-[10px] text-slate-500">Entre contas</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="grid gap-6 sm:grid-cols-2">
-            <!-- Payment Required Toggle -->
-            <div class="sm:col-span-2 rounded-xl border border-slate-200/80 bg-slate-50/60 p-4 flex items-center justify-between">
-                <div>
-                    <p class="font-semibold text-slate-900 text-xs">Exigir Pagamento Antecipado para Agendar?</p>
-                    <p class="text-[11px] text-slate-500">Se desativado, o agendamento é confirmado de imediato e o cliente paga no local ou no balcão.</p>
+        <!-- Card 2: Destaque Especial - Configuração do PIX Copia e Cola & Chave da Empresa -->
+        <div class="rounded-2xl border-2 border-emerald-200/90 bg-gradient-to-b from-white to-emerald-50/20 p-6 shadow-sm space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-emerald-100 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-500/30">
+                        <i class="fas fa-qrcode text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            PIX Copia e Cola & Dados Bancários da Empresa
+                            <span class="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 border border-emerald-200">
+                                BACEN EMVCo
+                            </span>
+                        </h3>
+                        <p class="text-xs text-slate-600 mt-0.5">Configure sua chave ou cole o código Copia e Cola do seu banco para receber na hora diretamente na sua conta.</p>
+                    </div>
                 </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" x-model="form.payment_required" class="sr-only peer">
-                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
+
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="generatePixBrcode()" class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 transition-all cursor-pointer">
+                        <i class="fas fa-wand-magic-sparkles text-xs"></i>
+                        Gerar Copia e Cola
+                    </button>
+                    <button type="button" @click="copyPixCode()" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition-all cursor-pointer">
+                        <i class="fas fa-copy text-xs" :class="copiedPix ? 'text-emerald-600' : 'text-slate-500'"></i>
+                        <span x-text="copiedPix ? 'Copiado!' : 'Copiar Código'"></span>
+                    </button>
+                </div>
             </div>
 
-            <div>
-                <label class="block font-medium text-slate-700 text-xs mb-1">Gateway Padrão Ativo</label>
-                <select x-model="form.default_gateway" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500">
-                    <option value="asaas">Asaas (Cobranças PIX, Boleto e Cartão)</option>
-                    <option value="mercadopago">Mercado Pago (Em Breve)</option>
-                    <option value="manual">Manual / Pagamento no Balcão</option>
-                    <option value="none">Nenhum (Sem cobrança)</option>
-                </select>
+            <!-- Campo Principal: PIX Copia e Cola -->
+            <div class="space-y-1.5">
+                <div class="flex items-center justify-between">
+                    <label class="block font-semibold text-slate-800 text-xs">
+                        Código PIX Copia e Cola (Payload BRCode)
+                    </label>
+                    <span class="text-[11px] text-slate-500 font-mono" x-show="form.pix_copy_paste">
+                        <span x-text="form.pix_copy_paste.length"></span> caracteres
+                    </span>
+                </div>
+                <div class="relative">
+                    <textarea x-model="form.pix_copy_paste" rows="3"
+                              placeholder="00020126580014br.gov.bcb.pix0136...5204000053039865802BR5912...6304"
+                              class="w-full font-mono text-xs rounded-xl border border-emerald-300 bg-emerald-50/20 px-3.5 py-2.5 text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all"></textarea>
+                </div>
+                <p class="text-[11px] text-slate-500 flex items-center gap-1.5">
+                    <i class="fas fa-circle-info text-emerald-600 text-xs"></i>
+                    Cole aqui o código Copia e Cola gerado pelo app do seu banco ou preencha a chave abaixo e clique em <strong>"Gerar Copia e Cola"</strong>.
+                </p>
             </div>
 
-            <div>
-                <label class="block font-medium text-slate-700 text-xs mb-1">Métodos de Pagamento Permitidos</label>
-                <div class="flex items-center gap-4 mt-2">
-                    <label class="inline-flex items-center text-xs text-slate-700">
-                        <input type="checkbox" value="pix" x-model="form.accepted_payment_methods" class="rounded border-slate-300 text-blue-600 mr-2" /> PIX
-                    </label>
-                    <label class="inline-flex items-center text-xs text-slate-700">
-                        <input type="checkbox" value="credit_card" x-model="form.accepted_payment_methods" class="rounded border-slate-300 text-blue-600 mr-2" /> Cartão
-                    </label>
-                    <label class="inline-flex items-center text-xs text-slate-700">
-                        <input type="checkbox" value="in_person" x-model="form.accepted_payment_methods" class="rounded border-slate-300 text-blue-600 mr-2" /> No Local
-                    </label>
+            <!-- Dados da Chave PIX e Titular -->
+            <div class="grid gap-4 sm:grid-cols-3 pt-2">
+                <!-- Chave PIX -->
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Chave PIX da Empresa</label>
+                    <input type="text" x-model="form.pix_key" placeholder="Ex: 12.345.678/0001-90 ou celular" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500" />
+                </div>
+
+                <!-- Tipo de Chave -->
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Tipo da Chave</label>
+                    <select x-model="form.pix_key_type" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-white">
+                        <option value="cnpj">CNPJ</option>
+                        <option value="cpf">CPF</option>
+                        <option value="phone">Telefone / Celular (+55)</option>
+                        <option value="email">E-mail</option>
+                        <option value="random">Chave Aleatória (EVP)</option>
+                    </select>
+                </div>
+
+                <!-- Banco / Instituição -->
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Banco / Instituição Financeira</label>
+                    <select x-model="form.pix_bank_name" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-white">
+                        <option value="">Selecione o banco...</option>
+                        <option value="Nubank">Nubank (Nu Pagamentos)</option>
+                        <option value="Banco Inter">Banco Inter</option>
+                        <option value="Itaú">Itaú Unibanco</option>
+                        <option value="Bradesco">Bradesco</option>
+                        <option value="Banco do Brasil">Banco do Brasil</option>
+                        <option value="Santander">Santander</option>
+                        <option value="Caixa Econômica">Caixa Econômica Federal</option>
+                        <option value="C6 Bank">C6 Bank</option>
+                        <option value="Efí Bank">Efí Bank (Gerencianet)</option>
+                        <option value="Mercado Pago">Mercado Pago</option>
+                        <option value="PagBank">PagBank / PagSeguro</option>
+                        <option value="Stone">Stone / Pagar.me</option>
+                        <option value="Outro Banco">Outro Banco</option>
+                    </select>
+                </div>
+
+                <!-- Nome do Titular -->
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Nome do Titular / Razão Social</label>
+                    <input type="text" x-model="form.pix_merchant_name" placeholder="Ex: Anauê Design Ltda" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500" />
+                    <p class="text-[10px] text-slate-500 mt-0.5">Nome exibido na confirmação de pagamento do cliente.</p>
+                </div>
+
+                <!-- Cidade do Titular -->
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Cidade da Conta</label>
+                    <input type="text" x-model="form.pix_merchant_city" placeholder="Ex: São Paulo" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500" />
+                    <p class="text-[10px] text-slate-500 mt-0.5">Exigido no padrão BRCode do Banco Central.</p>
+                </div>
+
+                <!-- Dica / Status -->
+                <div class="flex items-end">
+                    <div class="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 w-full">
+                        <p class="text-[11px] font-semibold text-emerald-900 flex items-center gap-1.5">
+                            <i class="fas fa-shield-halved text-emerald-600"></i>
+                            Liquidação Direta
+                        </p>
+                        <p class="text-[10px] text-emerald-700 mt-0.5">
+                            O dinheiro cai na sua conta sem retenção de intermediários.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Credenciais Específicas do Gateway (Exibido de acordo com o gateway selecionado) -->
+        <!-- Asaas -->
+        <div x-show="form.default_gateway === 'asaas'" class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
+            <h4 class="text-xs font-semibold text-slate-900 flex items-center gap-2">
+                <i class="fas fa-key text-blue-600"></i> Credenciais do Gateway Asaas
+            </h4>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div class="sm:col-span-2">
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Chave de API do Asaas ($aact_...)</label>
+                    <input type="password" x-model="form.gateway_credentials.api_key" placeholder="$aact_YTU5YTE0M2M6N2Z..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 font-mono" />
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Ambiente Asaas</label>
+                    <select x-model="form.gateway_credentials.base_url" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 bg-white">
+                        <option value="https://api.asaas.com/v3">Produção (https://api.asaas.com/v3)</option>
+                        <option value="https://sandbox.asaas.com/api/v3">Sandbox / Testes (https://sandbox.asaas.com/api/v3)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mercado Pago -->
+        <div x-show="form.default_gateway === 'mercadopago'" class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
+            <h4 class="text-xs font-semibold text-slate-900 flex items-center gap-2">
+                <i class="fas fa-key text-blue-600"></i> Credenciais do Mercado Pago
+            </h4>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Access Token (APP_USR-...)</label>
+                    <input type="password" x-model="form.gateway_credentials.access_token" placeholder="APP_USR-..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 font-mono" />
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Public Key</label>
+                    <input type="text" x-model="form.gateway_credentials.public_key" placeholder="APP_USR-..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 font-mono" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Efí Bank (Gerencianet) -->
+        <div x-show="form.default_gateway === 'efipay'" class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
+            <h4 class="text-xs font-semibold text-slate-900 flex items-center gap-2">
+                <i class="fas fa-key text-blue-600"></i> Credenciais da API Efí Bank (Gerencianet)
+            </h4>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Client ID</label>
+                    <input type="text" x-model="form.gateway_credentials.client_id" placeholder="Client_Id_..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs font-mono" />
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Client Secret</label>
+                    <input type="password" x-model="form.gateway_credentials.client_secret" placeholder="Client_Secret_..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs font-mono" />
                 </div>
             </div>
         </div>
@@ -125,53 +449,180 @@
 
     <!-- 3. Módulo WhatsApp & Canais -->
     <div x-show="activeTab === 'whatsapp'" class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-6">
-        <div>
-            <h3 class="text-sm font-semibold text-slate-900">Provedor e Conexão WhatsApp</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Selecione entre a Evolution API (QR Code) ou a Meta Cloud API Oficial.</p>
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+                <h3 class="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <i class="fab fa-whatsapp text-emerald-600"></i>
+                    Provedor e Conexão WhatsApp
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">Selecione entre WAHA (WhatsApp HTTP API), Evolution API (QR Code) ou a Meta Cloud API Oficial.</p>
+            </div>
+            <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-700/10">
+                Atendimento Omnichannel
+            </span>
         </div>
 
         <div class="grid gap-6 sm:grid-cols-2">
             <div class="sm:col-span-2">
-                <label class="block font-medium text-slate-700 text-xs mb-1">Provedor de Conexão Ativo</label>
-                <div class="grid grid-cols-2 gap-4 mt-2">
-                    <label class="flex items-center gap-3 rounded-xl border p-4 cursor-pointer transition-all" :class="form.whatsapp_provider === 'evolution' ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
-                        <input type="radio" value="evolution" x-model="form.whatsapp_provider" class="text-blue-600" />
+                <label class="block font-medium text-slate-700 text-xs mb-2">Provedor de Conexão Ativo</label>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
+                    <!-- WAHA -->
+                    <label class="flex items-center gap-3 rounded-xl border p-4 cursor-pointer transition-all"
+                           :class="form.whatsapp_provider === 'waha' ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                        <input type="radio" value="waha" x-model="form.whatsapp_provider" class="text-emerald-600 focus:ring-emerald-500" />
                         <div>
-                            <p class="font-semibold text-xs text-slate-900">Evolution API (QR Code)</p>
-                            <p class="text-[11px] text-slate-500">Conexão rápida por QR Code via celular.</p>
+                            <div class="flex items-center gap-1.5">
+                                <p class="font-semibold text-xs text-slate-900">WAHA</p>
+                                <span class="rounded bg-emerald-100 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800">NOVO</span>
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-0.5">WhatsApp HTTP API via QR Code (Leve & Docker).</p>
                         </div>
                     </label>
-                    <label class="flex items-center gap-3 rounded-xl border p-4 cursor-pointer transition-all" :class="form.whatsapp_provider === 'meta' ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
-                        <input type="radio" value="meta" x-model="form.whatsapp_provider" class="text-blue-600" />
+
+                    <!-- Evolution API -->
+                    <label class="flex items-center gap-3 rounded-xl border p-4 cursor-pointer transition-all"
+                           :class="form.whatsapp_provider === 'evolution' ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                        <input type="radio" value="evolution" x-model="form.whatsapp_provider" class="text-blue-600 focus:ring-blue-500" />
+                        <div>
+                            <p class="font-semibold text-xs text-slate-900">Evolution API</p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">Conexão por QR Code com multi-instâncias.</p>
+                        </div>
+                    </label>
+
+                    <!-- Meta Cloud API -->
+                    <label class="flex items-center gap-3 rounded-xl border p-4 cursor-pointer transition-all"
+                           :class="form.whatsapp_provider === 'meta' ? 'border-indigo-500 bg-indigo-50/50 ring-2 ring-indigo-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                        <input type="radio" value="meta" x-model="form.whatsapp_provider" class="text-indigo-600 focus:ring-indigo-500" />
                         <div>
                             <p class="font-semibold text-xs text-slate-900">Meta Cloud API Oficial</p>
-                            <p class="text-[11px] text-slate-500">Alta estabilidade empresarial direta com a Meta.</p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">Estabilidade empresarial direta com a Meta (WABA).</p>
                         </div>
                     </label>
+                </div>
+            </div>
+
+            <!-- WAHA Fields -->
+            <div x-show="form.whatsapp_provider === 'waha'" class="sm:col-span-2 space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/20 p-5">
+                <div class="flex items-center gap-2 border-b border-emerald-100 pb-3">
+                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white text-xs">
+                        <i class="fas fa-server"></i>
+                    </span>
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-900">Configurações do Servidor WAHA</h4>
+                        <p class="text-[11px] text-slate-500">Conecte sua instância do WAHA (WhatsApp HTTP API) rodando em Docker ou na VPS.</p>
+                    </div>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="block font-medium text-slate-700 text-xs mb-1">URL Base do WAHA *</label>
+                        <input type="text" x-model="form.waha_base_url" placeholder="Ex: http://localhost:3000 ou https://waha.seudominio.com" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 font-mono" />
+                        <p class="text-[10px] text-slate-500 mt-0.5">Endereço HTTP onde a API do WAHA está escutando.</p>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium text-slate-700 text-xs mb-1">Nome da Sessão WAHA *</label>
+                        <input type="text" x-model="form.waha_session" placeholder="default" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 font-mono" />
+                        <p class="text-[10px] text-slate-500 mt-0.5">Identificador da sessão no WAHA (o padrão é 'default').</p>
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label class="block font-medium text-slate-700 text-xs mb-1">Chave de API / Token WAHA (Opcional)</label>
+                        <input type="password" x-model="form.waha_api_key" placeholder="Ex: sua-chave-secreta-configurada-em-WAHA_API_KEY" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 font-mono" />
+                        <p class="text-[10px] text-slate-500 mt-0.5">Preencha apenas se seu container WAHA estiver protegido por chave de API (`X-Api-Key`).</p>
+                    </div>
+
+                    <!-- Webhook URL informativa do WAHA -->
+                    <div class="sm:col-span-2 rounded-xl border border-emerald-200 bg-white p-3.5 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-emerald-900 flex items-center gap-1.5">
+                                <i class="fas fa-satellite-dish text-emerald-600"></i>
+                                Endpoint de Webhook para Inbound no WAHA
+                            </span>
+                            <button type="button" @click="copyWebhookUrl('waha')" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 cursor-pointer">
+                                <i class="fas fa-copy text-xs"></i>
+                                <span x-text="copiedWahaWebhook ? 'Copiado!' : 'Copiar URL'"></span>
+                            </button>
+                        </div>
+                        <input type="text" readonly :value="getWebhookUrl('waha')" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-mono text-slate-600 select-all" />
+                        <p class="text-[10px] text-slate-500">Configure esta URL na sua sessão do WAHA para receber mensagens e eventos: <code>message</code> e <code>message.any</code>.</p>
+                    </div>
                 </div>
             </div>
 
             <!-- Evolution Fields -->
-            <div x-show="form.whatsapp_provider === 'evolution'" class="sm:col-span-2 space-y-4">
-                <div>
-                    <label class="block font-medium text-slate-700 text-xs mb-1">Nome da Instância na Evolution API</label>
-                    <input type="text" x-model="form.evolution_instance" placeholder="Ex: empresa_principal" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500" />
+            <div x-show="form.whatsapp_provider === 'evolution'" class="sm:col-span-2 space-y-4 rounded-xl border border-blue-100 bg-blue-50/20 p-5">
+                <div class="flex items-center gap-2 border-b border-blue-100 pb-3">
+                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white text-xs">
+                        <i class="fas fa-qrcode"></i>
+                    </span>
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-900">Configurações da Evolution API</h4>
+                        <p class="text-[11px] text-slate-500">Conecte sua instância da Evolution API.</p>
+                    </div>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="block font-medium text-slate-700 text-xs mb-1">URL Base da Evolution API</label>
+                        <input type="text" x-model="form.evolution_base_url" placeholder="Ex: http://localhost:8080 ou https://evolution.seudominio.com" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 font-mono" />
+                    </div>
+
+                    <div>
+                        <label class="block font-medium text-slate-700 text-xs mb-1">Nome da Instância *</label>
+                        <input type="text" x-model="form.evolution_instance" placeholder="Ex: empresa_principal" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 font-mono" />
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label class="block font-medium text-slate-700 text-xs mb-1">Chave de API da Evolution</label>
+                        <input type="password" x-model="form.evolution_api_key" placeholder="Ex: B6D711FCDE4D4FD5936544120E713976" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 font-mono" />
+                    </div>
+
+                    <!-- Webhook URL informativa Evolution -->
+                    <div class="sm:col-span-2 rounded-xl border border-blue-200 bg-white p-3.5 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-blue-900 flex items-center gap-1.5">
+                                <i class="fas fa-satellite-dish text-blue-600"></i>
+                                Endpoint de Webhook na Evolution API
+                            </span>
+                            <button type="button" @click="copyWebhookUrl('evolution')" class="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:text-blue-900 cursor-pointer">
+                                <i class="fas fa-copy text-xs"></i>
+                                <span x-text="copiedEvolutionWebhook ? 'Copiado!' : 'Copiar URL'"></span>
+                            </button>
+                        </div>
+                        <input type="text" readonly :value="getWebhookUrl('evolution')" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-mono text-slate-600 select-all" />
+                        <p class="text-[10px] text-slate-500">Configure este webhook na sua instância da Evolution com evento: <code>MESSAGES_UPSERT</code>.</p>
+                    </div>
                 </div>
             </div>
 
             <!-- Meta Fields -->
-            <div x-show="form.whatsapp_provider === 'meta'" class="sm:col-span-2 grid gap-4 sm:grid-cols-2">
+            <div x-show="form.whatsapp_provider === 'meta'" class="sm:col-span-2 grid gap-4 sm:grid-cols-2 rounded-xl border border-slate-200 bg-slate-50/40 p-5">
                 <div>
                     <label class="block font-medium text-slate-700 text-xs mb-1">Phone Number ID da Meta</label>
-                    <input type="text" x-model="form.meta_phone_number_id" placeholder="Ex: 102938475612345" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500" />
+                    <input type="text" x-model="form.meta_phone_number_id" placeholder="Ex: 102938475612345" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 font-mono" />
                 </div>
                 <div>
                     <label class="block font-medium text-slate-700 text-xs mb-1">WABA ID (Conta WhatsApp Business)</label>
-                    <input type="text" x-model="form.meta_waba_id" placeholder="Ex: 987654321098765" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500" />
+                    <input type="text" x-model="form.meta_waba_id" placeholder="Ex: 987654321098765" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 font-mono" />
                 </div>
                 <div class="sm:col-span-2">
                     <label class="block font-medium text-slate-700 text-xs mb-1">Token de Acesso Permanente (System User Token)</label>
-                    <input type="password" x-model="form.meta_access_token" placeholder="EAAB..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500" />
+                    <input type="password" x-model="form.meta_access_token" placeholder="EAAB..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 font-mono" />
+                </div>
+                <!-- Webhook URL informativa Meta -->
+                <div class="sm:col-span-2 rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+                            <i class="fas fa-satellite-dish text-indigo-600"></i>
+                            Callback URL na Meta for Developers
+                        </span>
+                        <button type="button" @click="copyWebhookUrl('meta')" class="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 cursor-pointer">
+                            <i class="fas fa-copy text-xs"></i>
+                            <span x-text="copiedMetaWebhook ? 'Copiado!' : 'Copiar URL'"></span>
+                        </button>
+                    </div>
+                    <input type="text" readonly :value="getWebhookUrl('meta')" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-mono text-slate-600 select-all" />
                 </div>
             </div>
         </div>
@@ -221,10 +672,14 @@ function companySettingsManager() {
         console.error('Error parsing settings data', e);
     }
 
+    const creds = settings.gateway_credentials || {};
+    const custom = settings.custom_settings || {};
+
     return {
         activeTab: 'financial',
         message: '',
         messageError: false,
+        copiedPix: false,
         form: {
             company_name: settings.company_name || 'Minha Empresa',
             assistant_name: settings.assistant_name || 'Assistente',
@@ -232,10 +687,31 @@ function companySettingsManager() {
             require_cpf: !!settings.require_cpf,
             welcome_message: settings.welcome_message || '',
             payment_required: settings.payment_required !== undefined ? !!settings.payment_required : true,
-            default_gateway: settings.default_gateway || 'asaas',
-            accepted_payment_methods: settings.accepted_payment_methods || ['pix'],
+            default_gateway: settings.default_gateway || 'direct_pix',
+            accepted_payment_methods: settings.accepted_payment_methods && settings.accepted_payment_methods.length ? settings.accepted_payment_methods : ['pix'],
+            pix_copy_paste: settings.pix_copy_paste || custom.pix_copy_paste || creds.pix_copy_paste || '',
+            pix_key: settings.pix_key || custom.pix_key || creds.pix_key || '',
+            pix_key_type: settings.pix_key_type || custom.pix_key_type || creds.pix_key_type || 'cnpj',
+            pix_merchant_name: settings.pix_merchant_name || custom.pix_merchant_name || creds.merchant_name || settings.company_name || '',
+            pix_bank_name: settings.pix_bank_name || custom.pix_bank_name || creds.bank_name || '',
+            pix_merchant_city: settings.pix_merchant_city || custom.pix_merchant_city || creds.merchant_city || 'Sao Paulo',
+            gateway_credentials: {
+                api_key: creds.api_key || creds.asaas_api_key || '',
+                base_url: creds.base_url || 'https://api.asaas.com/v3',
+                access_token: creds.access_token || '',
+                public_key: creds.public_key || '',
+                client_id: creds.client_id || '',
+                client_secret: creds.client_secret || '',
+                sandbox: !!creds.sandbox,
+                ...creds
+            },
             whatsapp_provider: settings.whatsapp_provider || 'evolution',
+            evolution_base_url: settings.evolution_base_url || '',
             evolution_instance: settings.evolution_instance || '',
+            evolution_api_key: settings.evolution_api_key || '',
+            waha_base_url: settings.waha_base_url || '',
+            waha_session: settings.waha_session || 'default',
+            waha_api_key: settings.waha_api_key || '',
             meta_phone_number_id: settings.meta_phone_number_id || '',
             meta_waba_id: settings.meta_waba_id || '',
             meta_access_token: settings.meta_access_token || '',
@@ -243,9 +719,145 @@ function companySettingsManager() {
             default_commission_rate: settings.default_commission_rate || 0,
             split_enabled: !!settings.split_enabled
         },
+        copiedWahaWebhook: false,
+        copiedEvolutionWebhook: false,
+        copiedMetaWebhook: false,
+
+        getWebhookUrl(provider) {
+            const origin = window.location.origin || 'http://127.0.0.1:8000';
+            return `${origin}/api/webhooks/whatsapp/${provider}`;
+        },
+
+        copyWebhookUrl(provider) {
+            const url = this.getWebhookUrl(provider);
+            if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(() => {
+                    if (provider === 'waha') this.copiedWahaWebhook = true;
+                    if (provider === 'evolution') this.copiedEvolutionWebhook = true;
+                    if (provider === 'meta') this.copiedMetaWebhook = true;
+                    this.showMessage(`URL do webhook ${provider.toUpperCase()} copiada!`);
+                    setTimeout(() => {
+                        this.copiedWahaWebhook = false;
+                        this.copiedEvolutionWebhook = false;
+                        this.copiedMetaWebhook = false;
+                    }, 3000);
+                });
+            } else {
+                this.showMessage('Área de transferência não suportada.', true);
+            }
+        },
+
+        getGatewayTitle(gw) {
+            const titles = {
+                'direct_pix': 'PIX Direto na Conta (Padrão BACEN)',
+                'inter': 'Banco Inter Empresas (PIX & Cobrança)',
+                'nubank': 'Nubank PJ (PIX Instantâneo)',
+                'itau': 'Itaú Empresas (PIX & Cobrança)',
+                'bradesco': 'Bradesco Net Empresa (PIX & Boleto)',
+                'banco_do_brasil': 'Banco do Brasil (BB Cobrança)',
+                'santander': 'Santander Negócios (PIX & Boleto)',
+                'caixa': 'Caixa Econômica (PIX & Boleto)',
+                'c6bank': 'C6 Bank Empresas (PIX)',
+                'efipay': 'Efí Bank / Gerencianet (API Oficial BACEN)',
+                'asaas': 'Asaas Gateway (PIX, Boleto e Cartão Automatizados)',
+                'mercadopago': 'Mercado Pago (PIX, Cartão e Linha de Crédito)',
+                'pagbank': 'PagBank / PagSeguro (PIX e Cartão)',
+                'stone': 'Stone / Pagar.me (PIX e Cartão)',
+                'stripe': 'Stripe (Cartão Internacional)',
+                'manual': 'Manual / Pagamento Presencial no Balcão',
+                'none': 'Sem Cobrança Prévia'
+            };
+            return titles[gw] || 'Gateway / Banco Selecionado';
+        },
+
+        getGatewayDescription(gw) {
+            if (['direct_pix', 'inter', 'nubank', 'itau', 'bradesco', 'santander', 'banco_do_brasil', 'caixa', 'c6bank'].includes(gw)) {
+                return 'Os agendamentos utilizarão o código PIX Copia e Cola configurado, creditando o valor diretamente na sua conta bancária sem intermediários e com liquidação imediata.';
+            }
+            if (gw === 'asaas') {
+                return 'Processamento automatizado com emissão de cobranças, conciliação em tempo real e suporte a split financeiro de comissões para profissionais.';
+            }
+            if (gw === 'mercadopago') {
+                return 'Aceitação de pagamentos via Mercado Pago, com opção de PIX dinâmico e cartão parcelado.';
+            }
+            if (gw === 'manual') {
+                return 'O cliente agenda seu horário e o pagamento é realizado presencialmente na sua loja/estabelecimento (dinheiro ou maquininha).';
+            }
+            return 'Cobranças configuradas de acordo com as preferências da sua empresa.';
+        },
+
+        copyPixCode() {
+            if (!this.form.pix_copy_paste) {
+                this.showMessage('Nenhum código PIX Copia e Cola preenchido para copiar.', true);
+                return;
+            }
+            if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(this.form.pix_copy_paste).then(() => {
+                    this.copiedPix = true;
+                    this.showMessage('Código PIX Copia e Cola copiado para a área de transferência!');
+                    setTimeout(() => { this.copiedPix = false; }, 3000);
+                }).catch(() => {
+                    this.showMessage('Não foi possível copiar automaticamente.', true);
+                });
+            } else {
+                this.showMessage('Área de transferência não suportada neste navegador.', true);
+            }
+        },
+
+        generatePixBrcode() {
+            if (!this.form.pix_key) {
+                this.showMessage('Informe a Chave PIX da empresa para gerar o código Copia e Cola.', true);
+                return;
+            }
+            const sanitize = (str, max) => (str || '')
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^A-Za-z0-9 ]/g, '').trim().substring(0, max);
+
+            const cleanKey = (this.form.pix_key || '').trim();
+            const cleanName = sanitize(this.form.pix_merchant_name || this.form.company_name || 'RECEBEDOR', 25) || 'RECEBEDOR';
+            const cleanCity = sanitize(this.form.pix_merchant_city || 'BRASIL', 15) || 'BRASIL';
+
+            let payload = '000201';
+            const gui = '0014br.gov.bcb.pix';
+            const keyField = '01' + String(cleanKey.length).padStart(2, '0') + cleanKey;
+            const accountInfo = gui + keyField;
+            payload += '26' + String(accountInfo.length).padStart(2, '0') + accountInfo;
+            payload += '52040000';
+            payload += '5303986';
+            payload += '5802BR';
+            payload += '59' + String(cleanName.length).padStart(2, '0') + cleanName;
+            payload += '60' + String(cleanCity.length).padStart(2, '0') + cleanCity;
+            payload += '62070503***';
+            payload += '6304';
+
+            // CRC16-CCITT (0x1021, init 0xFFFF)
+            let crc = 0xFFFF;
+            for (let i = 0; i < payload.length; i++) {
+                crc ^= (payload.charCodeAt(i) << 8);
+                for (let j = 0; j < 8; j++) {
+                    if (crc & 0x8000) {
+                        crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+                    } else {
+                        crc = (crc << 1) & 0xFFFF;
+                    }
+                }
+            }
+            const crcHex = crc.toString(16).toUpperCase().padStart(4, '0');
+            this.form.pix_copy_paste = payload + crcHex;
+            this.showMessage('Código PIX Copia e Cola padrão BACEN gerado com sucesso!');
+        },
 
         async saveSettings() {
             try {
+                // Sincroniza campos PIX para dentro de gateway_credentials
+                this.form.gateway_credentials = this.form.gateway_credentials || {};
+                this.form.gateway_credentials.pix_copy_paste = this.form.pix_copy_paste;
+                this.form.gateway_credentials.pix_key = this.form.pix_key;
+                this.form.gateway_credentials.pix_key_type = this.form.pix_key_type;
+                this.form.gateway_credentials.merchant_name = this.form.pix_merchant_name;
+                this.form.gateway_credentials.merchant_city = this.form.pix_merchant_city;
+                this.form.gateway_credentials.bank_name = this.form.pix_bank_name;
+
                 const res = await fetch('/admin/api/settings', {
                     method: 'POST',
                     headers: {

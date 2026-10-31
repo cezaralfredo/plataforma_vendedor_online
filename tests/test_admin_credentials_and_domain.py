@@ -70,12 +70,12 @@ def test_cli_create_or_reset_script(tmp_path):
         "--password",
         "AnaueDesign#2026!Master",
         "--domain",
-        "loja.anauedesign.com.br",
+        "ria.anauedesign.com.br",
         "--database-url",
         f"sqlite:///{db_file.as_posix()}",
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=True)  # noqa: S603
-    assert "loja.anauedesign.com.br" in proc.stdout
+    assert "ria.anauedesign.com.br" in proc.stdout
     assert "admin_loja_anaue" in proc.stdout
     assert "Credenciais de Acesso Administrativo Configuradas" in proc.stdout
 

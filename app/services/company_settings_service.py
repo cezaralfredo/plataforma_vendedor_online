@@ -40,6 +40,16 @@ class CompanySettingsService:
         settings = self.get_or_create_default()
         fields_to_update = update_data.model_dump(exclude_unset=True)
 
+        if "gateway_credentials" in fields_to_update:
+            creds = dict(settings.gateway_credentials or {})
+            creds.update(fields_to_update.pop("gateway_credentials") or {})
+            settings.gateway_credentials = creds
+
+        if "custom_settings" in fields_to_update:
+            custom = dict(settings.custom_settings or {})
+            custom.update(fields_to_update.pop("custom_settings") or {})
+            settings.custom_settings = custom
+
         for field, value in fields_to_update.items():
             setattr(settings, field, value)
 

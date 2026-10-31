@@ -119,7 +119,20 @@ def create_app(
     async def startup_tasks() -> None:
         db = session_factory()
         try:
-            bootstrap_admin_account(db, app_settings)
+            bind = db.get_bind()
+            if bind.dialect.name == "sqlite":
+                import app.models  # noqa: F401
+                from app.database import Base
+
+                Base.metadata.create_all(bind=bind)
+
+            effective_settings = app_settings
+            if not effective_settings.admin_bootstrap_password and effective_settings.debug:
+                effective_settings = effective_settings.model_copy(
+                    update={"admin_bootstrap_password": "admin"}
+                )
+
+            bootstrap_admin_account(db, effective_settings)
         finally:
             db.close()
         application.state.expiration_task = asyncio.create_task(_expiration_worker())

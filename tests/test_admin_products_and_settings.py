@@ -167,3 +167,75 @@ def test_admin_settings_update_persists_in_database(
     assert db_setting.company_name == "Studio & Barbearia Elite"
     assert db_setting.payment_required is False
     assert db_setting.default_gateway == "manual"
+
+
+def test_admin_settings_update_with_bank_modalities_and_pix_copy_paste(
+    client: TestClient, db_session: Session
+):
+    login(client)
+    csrf = session_data(client)["csrf_token"]
+    headers = {"X-CSRF-Token": csrf}
+
+    update_payload = {
+        "default_gateway": "inter",
+        "accepted_payment_methods": ["pix", "credit_card", "debit_card", "boleto", "in_person", "cash"],
+        "pix_copy_paste": "00020126330014br.gov.bcb.pix0111123456789005204000053039865802BR5912Anaue Design6009Sao Paulo62070503***630493E2",
+        "pix_key": "12345678900",
+        "pix_key_type": "cpf",
+        "pix_merchant_name": "Anaue Design",
+        "pix_bank_name": "Banco Inter",
+        "pix_merchant_city": "Sao Paulo",
+    }
+
+    res = client.post(
+        "/admin/api/settings",
+        headers=headers,
+        json=update_payload,
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["default_gateway"] == "inter"
+    assert "debit_card" in data["accepted_payment_methods"]
+    assert "boleto" in data["accepted_payment_methods"]
+    assert data["pix_copy_paste"].startswith("00020126")
+    assert data["pix_key"] == "12345678900"
+    assert data["pix_bank_name"] == "Banco Inter"
+
+    # Confirma que na página GET /admin/settings os dados chegam serializados no HTML
+    get_res = client.get("/admin/settings")
+    assert get_res.status_code == 200
+    assert "Banco Inter" in get_res.text
+    assert "00020126" in get_res.text
+
+
+def test_admin_settings_waha_update_and_html_render(
+    client: TestClient, db_session: Session
+):
+    login(client)
+    csrf = session_data(client)["csrf_token"]
+    headers = {"X-CSRF-Token": csrf}
+
+    waha_payload = {
+        "whatsapp_provider": "waha",
+        "waha_base_url": "https://waha.anaue.com.br",
+        "waha_session": "loja_principal",
+        "waha_api_key": "waha-secret-token-999",
+    }
+
+    res = client.post(
+        "/admin/api/settings",
+        headers=headers,
+        json=waha_payload,
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["whatsapp_provider"] == "waha"
+    assert data["waha_base_url"] == "https://waha.anaue.com.br"
+    assert data["waha_session"] == "loja_principal"
+    assert data["waha_api_key"] == "waha-secret-token-999"
+
+    # Confirma renderização do WAHA na página de configurações
+    get_res = client.get("/admin/settings")
+    assert get_res.status_code == 200
+    assert "WAHA" in get_res.text
+    assert "https://waha.anaue.com.br" in get_res.text

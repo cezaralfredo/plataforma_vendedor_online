@@ -1,6 +1,6 @@
 # Deploy no Portainer com Nginx Proxy Manager (NPM) como SSL
 
-> **Plataforma Vendedor Online — Anauê Design (`loja.anauedesign.com.br`)**  
+> **Plataforma Vendedor Online — Anauê Design (`ria.anauedesign.com.br`)**  
 > O Nginx Proxy Manager (NPM) gerencia as portas 80 e 443 e emite os certificados SSL (Let's Encrypt) automaticamente. A aplicação roda isolada internamente na rede Docker e recebe tráfego seguro por proxy reverso.
 
 ---
@@ -24,7 +24,7 @@
 
 * **Nenhuma porta 80/443 exposta na aplicação:** As portas públicas pertencem exclusivamente ao NPM.
 * **Rede externa compartilhada:** `npm` (ou `nginx-proxy_default`).
-* **Aliases internos da API:** `vendedor-api`, `agenda-api`, `loja-anauedesign`.
+* **Aliases internos da API:** `vendedor-api`, `ria-api`, `ria-anauedesign`, `loja-anauedesign`.
 
 ---
 
@@ -72,9 +72,9 @@ Após subir a stack no Portainer, acesse o painel do seu NPM (`http://seu-ip:81`
 
 1. Vá em **Hosts → Proxy Hosts → Add Proxy Host**.
 2. **Details:**
-   - **Domain Names:** `loja.anauedesign.com.br`
+   - **Domain Names:** `ria.anauedesign.com.br` *(e opcionalmente `loja.anauedesign.com.br`)*
    - **Scheme:** `http`
-   - **Forward Hostname / IP:** `vendedor-api` *(ou `agenda-api`)*
+   - **Forward Hostname / IP:** `vendedor-api` *(ou `ria-anauedesign`)*
    - **Forward Port:** `8000`
    - Marque:
      - [x] **Cache Assets**
@@ -109,11 +109,11 @@ Valide pelo navegador ou via curl:
 
 ```bash
 # 1. Checagem de integridade da API e Banco
-curl -k https://loja.anauedesign.com.br/ready
+curl -k https://ria.anauedesign.com.br/ready
 
 # 2. Acesso ao Painel Administrativo
-# Abra no navegador: https://loja.anauedesign.com.br/login
-# (ou https://loja.anauedesign.com.br/admin/login)
+# Abra no navegador: https://ria.anauedesign.com.br/login
+# (ou https://ria.anauedesign.com.br/admin/login)
 ```
 
 ---
@@ -121,7 +121,7 @@ curl -k https://loja.anauedesign.com.br/ready
 ## 5. Gerenciando Senha e Acesso Administrativo
 
 * **Primeiro acesso:** Entre com `ADMIN_USERNAME` e a senha definida em `ADMIN_BOOTSTRAP_PASSWORD`.
-* **Alterar senha:** Acesse `https://loja.anauedesign.com.br/admin/password` para trocar por senha exclusiva.
+* **Alterar senha:** Acesse `https://ria.anauedesign.com.br/admin/password` para trocar por senha exclusiva.
 * **Criar/Resetar senha via terminal:**
   ```bash
   docker exec -it <container_api> python scripts/create_or_reset_admin.py --username admin_anaue --generate

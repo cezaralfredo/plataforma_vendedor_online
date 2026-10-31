@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     admin_recovery_key: str = ""
     app_name: str = "Agenda Atende"
     app_timezone: str = "America/Sao_Paulo"
+    domain: str = "ria.anauedesign.com.br"
     debug: bool = True
 
     asaas_api_key: str = ""

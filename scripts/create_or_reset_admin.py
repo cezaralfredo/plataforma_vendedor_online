@@ -58,8 +58,8 @@ def main():
     parser.add_argument(
         "--domain",
         type=str,
-        default=os.getenv("DOMAIN", "loja.anauedesign.com.br"),
-        help="Domínio da plataforma (padrão: loja.anauedesign.com.br)",
+        default=os.getenv("DOMAIN", "ria.anauedesign.com.br"),
+        help="Domínio da plataforma (padrão: ria.anauedesign.com.br)",
     )
     parser.add_argument(
         "--database-url",
@@ -110,7 +110,7 @@ def main():
             account = upsert_admin_account(db, username=username, password=password)
 
             print("\n" + "=" * 68)
-            print("  ANAUÊ DESIGN - VENDEDOR ONLINE (loja.anauedesign.com.br)")
+            print("  ANAUÊ DESIGN - VENDEDOR ONLINE (ria.anauedesign.com.br)")
             print("  Credenciais de Acesso Administrativo Configuradas")
             print("=" * 68)
             print(f"  Domínio:            https://{domain}")
