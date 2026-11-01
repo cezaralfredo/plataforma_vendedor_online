@@ -57,7 +57,8 @@ services:
           - loja-anauedesign
           - ria-api
           - ria-anauedesign
-      mcp_internal:
+          - ria360
+          - ria360-api
 
 volumes:
   agenda_pgdata:
@@ -68,6 +69,3 @@ networks:
   npm:
     external: true
     name: ${NPM_NETWORK:-nginx-proxy_default}
-  mcp_internal:
-    external: true
-    name: "${AGENDA_MCP_NETWORK:-agenda_mcp_internal}"
