@@ -28,6 +28,7 @@ def test_admin_products_page_renders_with_sidebar_and_data(
         category="Cabelo",
         price_cents=4500,
         stock_quantity=10,
+        image_url="https://imagens.exemplo.com/shampoo.jpg",
         active=True,
     )
     db_session.add(product)
@@ -37,6 +38,8 @@ def test_admin_products_page_renders_with_sidebar_and_data(
     assert res.status_code == 200
     assert "Catálogo de Produtos" in res.text
     assert "Shampoo Hidratante Premium" in res.text
+    assert "https://imagens.exemplo.com/shampoo.jpg" in res.text
+    assert "URL da Imagem / Foto do Produto" in res.text
     assert "href=\"/admin/products\"" in res.text
     assert "href=\"/admin/settings\"" in res.text
 
@@ -90,6 +93,7 @@ def test_admin_product_lifecycle_with_valid_csrf(
         "price_cents": 5000,
         "stock_quantity": 20,
         "sku": "POM-001",
+        "image_url": "https://imagens.exemplo.com/pomada.jpg",
     }
     res_create = client.post(
         "/admin/api/products",
@@ -100,9 +104,14 @@ def test_admin_product_lifecycle_with_valid_csrf(
     created_id = res_create.json()["id"]
     assert created_id is not None
     assert res_create.json()["name"] == "Pomada Modeladora Matte"
+    assert res_create.json()["image_url"] == "https://imagens.exemplo.com/pomada.jpg"
 
     # 2. Atualizar produto
-    update_payload = {"price_cents": 5500, "name": "Pomada Modeladora Matte Gold"}
+    update_payload = {
+        "price_cents": 5500,
+        "name": "Pomada Modeladora Matte Gold",
+        "image_url": "https://imagens.exemplo.com/pomada-gold.jpg",
+    }
     res_update = client.put(
         f"/admin/api/products/{created_id}",
         headers=headers,
@@ -111,6 +120,7 @@ def test_admin_product_lifecycle_with_valid_csrf(
     assert res_update.status_code == 200
     assert res_update.json()["price_cents"] == 5500
     assert res_update.json()["name"] == "Pomada Modeladora Matte Gold"
+    assert res_update.json()["image_url"] == "https://imagens.exemplo.com/pomada-gold.jpg"
 
     # 3. Ajustar estoque (+5)
     res_stock = client.post(

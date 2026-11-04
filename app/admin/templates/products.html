@@ -67,6 +67,62 @@
             </div>
         </div>
 
+        <!-- Mobile Card List (< md) -->
+        <div class="md:hidden divide-y divide-slate-100">
+            <template x-for="product in filteredProducts" :key="product.id">
+                <article class="p-4 space-y-3" :class="product.active ? '' : 'bg-slate-50/40 text-slate-400'">
+                    <div class="flex items-start gap-3">
+                        <div class="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50">
+                            <template x-if="product.image_url">
+                                <img :src="product.image_url" :alt="product.name" class="h-full w-full object-cover" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                            </template>
+                            <div :class="product.image_url ? 'hidden' : 'flex'" class="h-full w-full items-center justify-center bg-blue-50 text-blue-600">
+                                <i class="fas fa-box text-base"></i>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between gap-2">
+                                <p class="font-semibold text-slate-900 text-sm truncate" x-text="product.name"></p>
+                                <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0"
+                                      :class="product.active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'"
+                                      x-text="product.active ? 'Ativo' : 'Arquivado'"></span>
+                            </div>
+                            <p class="text-[11px] text-slate-400" x-text="product.sku ? 'SKU: ' + product.sku + (product.category ? ' • ' + product.category : '') : (product.category || 'Geral')"></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <span class="text-slate-400 text-[11px]">Preço:</span>
+                            <p class="font-semibold text-slate-900 text-sm" x-text="formatMoney(product.price_cents)"></p>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 text-[11px]">Estoque:</span>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                                <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                      :class="product.stock_quantity > 5 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : (product.stock_quantity > 0 ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200')">
+                                    <span class="h-1.5 w-1.5 rounded-full" :class="product.stock_quantity > 5 ? 'bg-emerald-500' : (product.stock_quantity > 0 ? 'bg-amber-500' : 'bg-rose-500')"></span>
+                                    <span x-text="product.stock_quantity + ' un.'"></span>
+                                </span>
+                                <button type="button" @click="openStockModal(product)" title="Ajustar estoque" class="p-1 text-slate-400 hover:text-blue-600">
+                                    <i class="fas fa-layer-group text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                        <button type="button" @click="openEdit(product)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 transition-all">
+                            <i class="fas fa-edit mr-1 text-slate-400"></i>Editar
+                        </button>
+                        <button type="button" @click="toggleActive(product)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium shadow-2xs hover:bg-slate-50 transition-all"
+                                :class="product.active ? 'text-amber-700' : 'text-emerald-700'">
+                            <i class="fas" :class="product.active ? 'fa-archive' : 'fa-check'"></i>
+                            <span x-text="product.active ? 'Arquivar' : 'Ativar'"></span>
+                        </button>
+                    </div>
+                </article>
+            </template>
+        </div>
+
         <!-- Table -->
         <div class="hidden md:block overflow-x-auto">
             <table class="w-full text-left text-xs">
@@ -85,9 +141,14 @@
                         <tr class="hover:bg-slate-50/60 transition-colors" :class="product.active ? '' : 'bg-slate-50/40 text-slate-400'">
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
-                                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
-                                        <i class="fas fa-box text-sm"></i>
-                                    </span>
+                                    <div class="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50">
+                                        <template x-if="product.image_url">
+                                            <img :src="product.image_url" :alt="product.name" class="h-full w-full object-cover" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                                        </template>
+                                        <div :class="product.image_url ? 'hidden' : 'flex'" class="h-full w-full items-center justify-center bg-blue-50 text-blue-600">
+                                            <i class="fas fa-box text-sm"></i>
+                                        </div>
+                                    </div>
                                     <div>
                                         <p class="font-semibold text-slate-900 text-sm" x-text="product.name"></p>
                                         <p class="text-[11px] text-slate-400" x-text="product.sku ? 'SKU: ' + product.sku : 'Sem código SKU'"></p>
@@ -183,6 +244,29 @@
                     <textarea x-model="form.description" rows="2" placeholder="Descreva os benefícios e características do produto para que a IA apresente ao cliente com precisão..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500"></textarea>
                 </div>
 
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block font-medium text-slate-700">URL da Imagem / Foto do Produto</label>
+                        <span x-show="imageError && form.image_url" class="text-[11px] text-rose-500 font-medium">
+                            <i class="fas fa-circle-exclamation mr-1"></i>Imagem não carregou
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="relative flex-1">
+                            <input type="url" x-model="form.image_url" @input="imageError = false" placeholder="https://exemplo.com/fotos/produto.jpg" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500" />
+                        </div>
+                        <div class="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-slate-400 shadow-2xs" title="Pré-visualização da imagem">
+                            <template x-if="form.image_url">
+                                <img :src="form.image_url" alt="Preview" class="h-full w-full object-cover" @error="imageError = true" @load="imageError = false" />
+                            </template>
+                            <span x-show="!form.image_url || imageError" class="text-xs">
+                                <i class="fas fa-image"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <p class="mt-1 text-[11px] text-slate-400">Insira o link público da foto. Ela será exibida no catálogo e enviada aos clientes no WhatsApp pelo atendente de IA.</p>
+                </div>
+
                 <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                     <button type="button" @click="modalOpen = false" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-all">Cancelar</button>
                     <button type="submit" class="rounded-xl bg-blue-600 px-5 py-2 text-xs font-medium text-white shadow-sm hover:bg-blue-700 transition-all">Salvar Produto</button>
@@ -243,6 +327,7 @@ function productCatalog() {
         selectedProduct: null,
         stockOperation: 'add',
         stockDelta: 1,
+        imageError: false,
         form: {
             id: null,
             name: '',
@@ -250,7 +335,8 @@ function productCatalog() {
             sku: '',
             price: '',
             stock_quantity: 0,
-            description: ''
+            description: '',
+            image_url: ''
         },
 
         get metrics() {
@@ -287,11 +373,13 @@ function productCatalog() {
         },
 
         openCreate() {
-            this.form = { id: null, name: '', category: '', sku: '', price: '', stock_quantity: 0, description: '' };
+            this.imageError = false;
+            this.form = { id: null, name: '', category: '', sku: '', price: '', stock_quantity: 0, description: '', image_url: '' };
             this.modalOpen = true;
         },
 
         openEdit(p) {
+            this.imageError = false;
             this.form = {
                 id: p.id,
                 name: p.name,
@@ -299,7 +387,8 @@ function productCatalog() {
                 sku: p.sku || '',
                 price: (p.price_cents / 100).toFixed(2),
                 stock_quantity: p.stock_quantity,
-                description: p.description || ''
+                description: p.description || '',
+                image_url: p.image_url || ''
             };
             this.modalOpen = true;
         },
@@ -319,7 +408,8 @@ function productCatalog() {
                 sku: this.form.sku || null,
                 price_cents: priceCents,
                 stock_quantity: parseInt(this.form.stock_quantity) || 0,
-                description: this.form.description || null
+                description: this.form.description || null,
+                image_url: this.form.image_url && this.form.image_url.trim() ? this.form.image_url.trim() : null
             };
 
             const isEdit = !!this.form.id;
@@ -340,7 +430,9 @@ function productCatalog() {
 
                 if (isEdit) {
                     const idx = this.products.findIndex(p => p.id === this.form.id);
-                    if (idx !== -1) this.products[idx] = data;
+                    if (idx !== -1) {
+                        this.products.splice(idx, 1, data);
+                    }
                 } else {
                     this.products.unshift(data);
                     if (data.category && !this.categories.includes(data.category)) {
