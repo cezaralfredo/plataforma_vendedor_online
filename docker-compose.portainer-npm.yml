@@ -57,16 +57,11 @@ services:
       agenda_internal:
       npm:
         aliases:
-          - agenda-api
-          - vendedor-api
-          - loja-api
-          - loja-anauedesign
-          - ria-api
-          - ria-anauedesign
           - ria360
           - ria360-api
-          - vendedor-ia
-          - vendedor-anauedesign
+          - ria-api
+          - ria-anauedesign
+          - agenda-api
 
 volumes:
   agenda_pgdata:
