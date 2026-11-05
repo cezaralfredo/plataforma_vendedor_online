@@ -781,6 +781,46 @@
                     <input type="text" readonly :value="getWebhookUrl('meta')" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-mono text-slate-600 select-all" />
                 </div>
             </div>
+
+            <!-- Modo Coexistência (WhatsApp Business App + IA) -->
+            <div class="sm:col-span-2 rounded-2xl border border-emerald-200/90 bg-gradient-to-r from-emerald-50/70 to-teal-50/50 p-5 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-start gap-3">
+                        <div class="rounded-xl bg-emerald-600 text-white p-2.5 shadow-sm">
+                            <i class="fas fa-people-arrows text-sm"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-900 flex items-center gap-2">
+                                Modo Coexistência (WhatsApp Business App + IA)
+                                <span class="bg-emerald-100 text-emerald-800 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-300">Novo</span>
+                            </h4>
+                            <p class="text-[11px] text-slate-600 mt-0.5">Permite que você ou seus vendedores usem o aplicativo <strong>WhatsApp Business</strong> no celular normalmente. Ao responder um cliente manualmente, a IA é silenciada para não atrapalhar.</p>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer ml-4">
+                        <input type="checkbox" x-model="form.coexistence_enabled" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                </div>
+
+                <div x-show="form.coexistence_enabled" class="grid gap-4 sm:grid-cols-2 pt-3 border-t border-emerald-200/60">
+                    <div>
+                        <label class="block font-medium text-slate-700 text-xs mb-1">
+                            Tempo de Silêncio da IA após atendimento humano (minutos)
+                        </label>
+                        <input type="number" min="5" max="1440" x-model.number="form.coexistence_pause_minutes" placeholder="45" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500" />
+                        <p class="text-[10px] text-slate-500 mt-1">Tempo em que a IA permanecerá em silêncio após cada mensagem enviada pelo app móvel.</p>
+                    </div>
+
+                    <div class="rounded-xl bg-white/80 border border-emerald-100 p-3 text-[11px] text-slate-600 space-y-1">
+                        <p class="font-semibold text-emerald-950 flex items-center gap-1.5">
+                            <i class="fas fa-terminal text-emerald-600 text-xs"></i> Comandos Rápidos no WhatsApp:
+                        </p>
+                        <p>• Digite <code class="font-mono bg-emerald-100/70 text-emerald-900 px-1 py-0.5 rounded font-bold">#bot</code> ou <code class="font-mono bg-emerald-100/70 text-emerald-900 px-1 py-0.5 rounded font-bold">#ia</code> no chat para reativar o bot imediatamente.</p>
+                        <p>• Digite <code class="font-mono bg-emerald-100/70 text-emerald-900 px-1 py-0.5 rounded font-bold">#pausa</code> para travar a IA por 4 horas em negociações delicadas.</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
