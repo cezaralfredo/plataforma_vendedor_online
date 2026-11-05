@@ -70,9 +70,7 @@ def verify_password(password: str, encoded_hash: str) -> bool:
 
 
 def bootstrap_admin_account(db: Session, settings: Settings) -> AdminAccount:
-    account = db.scalar(
-        select(AdminAccount).where(AdminAccount.id == 1).with_for_update()
-    )
+    account = db.scalar(select(AdminAccount).where(AdminAccount.id == 1))
     if account is not None:
         return account
     if not settings.admin_bootstrap_password:
@@ -88,14 +86,13 @@ def bootstrap_admin_account(db: Session, settings: Settings) -> AdminAccount:
         with db.begin_nested():
             db.add(account)
             db.flush()
+        db.commit()
     except IntegrityError:
-        account = db.scalar(
-            select(AdminAccount).where(AdminAccount.id == 1).with_for_update()
-        )
+        db.rollback()
+        account = db.scalar(select(AdminAccount).where(AdminAccount.id == 1))
         if account is not None:
             return account
         raise
-    db.commit()
     db.refresh(account)
     return account
 
