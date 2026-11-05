@@ -505,6 +505,33 @@ async def api_update_settings(payload: CompanySettingsUpdate, db: Session = Depe
     return jsonable_encoder(CompanySettingsResponse.model_validate(settings))
 
 
+@router.get("/api/whatsapp/qr", dependencies=[Depends(require_admin)])
+async def api_whatsapp_qr(db: Session = Depends(get_db)):
+    from app.services.whatsapp.gateway import WhatsAppGatewayService
+
+    gateway = WhatsAppGatewayService(db)
+    result = await gateway.get_qr_status()
+    return jsonable_encoder(result)
+
+
+@router.post("/api/whatsapp/restart-session", dependencies=[Depends(require_admin_mutation)])
+async def api_whatsapp_restart(db: Session = Depends(get_db)):
+    from app.services.whatsapp.gateway import WhatsAppGatewayService
+
+    gateway = WhatsAppGatewayService(db)
+    result = await gateway.restart_session()
+    return jsonable_encoder(result)
+
+
+@router.post("/api/whatsapp/logout-session", dependencies=[Depends(require_admin_mutation)])
+async def api_whatsapp_logout(db: Session = Depends(get_db)):
+    from app.services.whatsapp.gateway import WhatsAppGatewayService
+
+    gateway = WhatsAppGatewayService(db)
+    result = await gateway.logout_session()
+    return jsonable_encoder(result)
+
+
 @router.get(
     "/professionals/new",
     response_class=HTMLResponse,

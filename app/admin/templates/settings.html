@@ -704,6 +704,36 @@
                         <p class="text-[10px] text-slate-500 mt-0.5">Preencha apenas se seu container WAHA estiver protegido por chave de API (`X-Api-Key`).</p>
                     </div>
 
+                                        <!-- Status & QR Code Connection Card -->
+                    <div class="sm:col-span-2 rounded-2xl border border-emerald-300 bg-gradient-to-r from-emerald-50/80 to-teal-50/60 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" :class="whatsappStatus === 'WORKING' ? 'bg-emerald-600' : (whatsappStatus === 'SCAN_QR_CODE' ? 'bg-amber-500' : 'bg-slate-400')">
+                                <i class="fab fa-whatsapp text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h4 class="text-xs font-bold text-slate-900">Conexão do WhatsApp</h4>
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                          :class="{
+                                              'bg-emerald-100 text-emerald-800 border border-emerald-300': whatsappStatus === 'WORKING',
+                                              'bg-amber-100 text-amber-800 border border-amber-300': whatsappStatus === 'SCAN_QR_CODE',
+                                              'bg-blue-100 text-blue-800 border border-blue-300': whatsappStatus === 'STARTING',
+                                              'bg-slate-100 text-slate-700 border border-slate-300': !whatsappStatus || whatsappStatus === 'STOPPED' || whatsappStatus === 'FAILED'
+                                          }"
+                                          x-text="whatsappStatusLabel">
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-slate-600 mt-0.5" x-text="whatsappConnectedPhone ? 'Número conectado: +' + whatsappConnectedPhone : 'Conecte o WhatsApp da sua loja escaneando o QR Code direto pela tela.'"></p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <button type="button" @click="openQrModal()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer">
+                                <i class="fas fa-qrcode"></i>
+                                <span x-text="whatsappStatus === 'WORKING' ? 'Gerenciar Conexão' : 'Escanear QR Code'"></span>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Webhook URL informativa do WAHA -->
                     <div class="sm:col-span-2 rounded-xl border border-emerald-200 bg-white p-3.5 space-y-2">
                         <div class="flex items-center justify-between">
@@ -834,6 +864,81 @@
     </div>
 </div>
 
+    <!-- Modal QR Code WhatsApp -->
+    <div x-show="showQrModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4" @keydown.escape.window="closeQrModal()">
+        <div @click.away="closeQrModal()" class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center relative">
+            <button type="button" @click="closeQrModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-sm p-1 rounded-full cursor-pointer">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3 bg-emerald-100 text-emerald-600">
+                <i class="fab fa-whatsapp text-2xl"></i>
+            </div>
+            <h3 class="text-sm font-bold text-slate-900">WhatsApp da Loja</h3>
+            
+            <template x-if="whatsappStatus === 'WORKING'">
+                <div class="mt-4">
+                    <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col items-center gap-2">
+                        <div class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-lg">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <span class="text-xs font-bold text-emerald-900">WhatsApp Conectado!</span>
+                        <span class="text-[11px] text-emerald-700" x-text="whatsappConnectedPhone ? 'Número: +' + whatsappConnectedPhone : 'Sessão ativa e operacional.'"></span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-3">Sua loja já está apta para enviar e receber mensagens de clientes com a IA.</p>
+                    <div class="mt-4 flex gap-2">
+                        <button type="button" @click="logoutWhatsapp()" :disabled="qrLoading" class="flex-1 py-2 px-3 border border-red-300 text-red-600 hover:bg-red-50 rounded-xl text-xs font-semibold transition-all cursor-pointer">
+                            <i class="fas fa-sign-out-alt mr-1"></i> Desconectar
+                        </button>
+                        <button type="button" @click="closeQrModal()" class="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer">
+                            Fechar
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <template x-if="whatsappStatus !== 'WORKING'">
+                <div>
+                    <p class="text-xs text-slate-500 mt-1">Abra o WhatsApp &gt; Aparelhos conectados &gt; Conectar aparelho e aponte para o QR Code abaixo:</p>
+                    
+                    <div class="mt-4 flex flex-col items-center justify-center min-h-[220px] bg-slate-50 rounded-2xl p-4 border border-slate-200/80">
+                        <template x-if="qrLoading && !qrCodeImage">
+                            <div class="flex flex-col items-center gap-2 py-8">
+                                <i class="fas fa-circle-notch fa-spin text-2xl text-emerald-600"></i>
+                                <span class="text-xs text-slate-500">Iniciando sessão e gerando QR Code...</span>
+                            </div>
+                        </template>
+                        <template x-if="qrCodeImage && !qrLoading">
+                            <div class="flex flex-col items-center">
+                                <img :src="qrCodeImage" alt="QR Code WhatsApp" class="w-52 h-52 rounded-xl shadow-xs border border-white bg-white p-1" />
+                                <span class="text-[11px] text-emerald-700 font-medium mt-2 flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                                    Aguardando leitura do celular...
+                                </span>
+                            </div>
+                        </template>
+                        <template x-if="!qrCodeImage && !qrLoading">
+                            <div class="flex flex-col items-center gap-2 py-6">
+                                <i class="fas fa-exclamation-circle text-2xl text-amber-500"></i>
+                                <span class="text-xs text-slate-600">Nenhum QR Code disponível no momento.</span>
+                                <button type="button" @click="restartWhatsappSession()" class="mt-2 px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-lg hover:bg-emerald-700 font-semibold cursor-pointer">
+                                    Gerar QR Code
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="mt-4 flex items-center justify-between text-xs">
+                        <span class="text-[11px] text-slate-400" x-text="'Status: ' + (whatsappStatus || 'Carregando...')"></span>
+                        <button type="button" @click="restartWhatsappSession()" :disabled="qrLoading" class="text-emerald-600 hover:text-emerald-700 font-medium text-xs flex items-center gap-1 cursor-pointer">
+                            <i class="fas fa-sync-alt" :class="qrLoading ? 'fa-spin' : ''"></i>
+                            <span>Novo QR Code</span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
 <script>
 function companySettingsManager() {
     const rawData = document.getElementById('settings-data');
@@ -849,6 +954,24 @@ function companySettingsManager() {
 
     return {
         activeTab: 'financial',
+        whatsappStatus: null,
+        whatsappConnectedPhone: null,
+        qrCodeImage: null,
+        qrLoading: false,
+        showQrModal: false,
+        qrPollTimer: null,
+
+        get whatsappStatusLabel() {
+            const map = {
+                'WORKING': 'Conectado',
+                'CONNECTED': 'Conectado',
+                'SCAN_QR_CODE': 'Aguardando Leitura do QR Code',
+                'STARTING': 'Iniciando Sessão...',
+                'STOPPED': 'Sessão Parada',
+                'FAILED': 'Desconectado'
+            };
+            return map[this.whatsappStatus] || (this.whatsappStatus || 'Verificando...');
+        },
         message: '',
         messageError: false,
         copiedPix: false,
@@ -1078,6 +1201,89 @@ function companySettingsManager() {
             this.message = msg;
             this.messageError = isError;
             setTimeout(() => { this.message = ''; }, 4000);
+        },
+
+        init() {
+            if (this.form.whatsapp_provider === 'waha') {
+                this.checkWhatsappStatus();
+            }
+        },
+
+        async checkWhatsappStatus() {
+            try {
+                const res = await fetch('/admin/api/whatsapp/qr');
+                const data = await res.json();
+                if (data.success) {
+                    this.whatsappStatus = data.status;
+                    this.whatsappConnectedPhone = data.me ? (data.me.id ? data.me.id.split('@')[0] : data.me.pushName) : null;
+                    this.qrCodeImage = data.qr_code || null;
+                } else {
+                    this.whatsappStatus = 'ERROR';
+                }
+            } catch (err) {
+                console.error('Erro ao verificar status do WhatsApp:', err);
+                this.whatsappStatus = 'UNAVAILABLE';
+            }
+        },
+
+        async openQrModal() {
+            this.showQrModal = true;
+            this.qrLoading = !this.qrCodeImage;
+            await this.checkWhatsappStatus();
+            this.qrLoading = false;
+
+            if (this.qrPollTimer) clearInterval(this.qrPollTimer);
+            this.qrPollTimer = setInterval(async () => {
+                if (this.showQrModal) {
+                    await this.checkWhatsappStatus();
+                } else {
+                    clearInterval(this.qrPollTimer);
+                }
+            }, 4000);
+        },
+
+        closeQrModal() {
+            this.showQrModal = false;
+            if (this.qrPollTimer) clearInterval(this.qrPollTimer);
+        },
+
+        async restartWhatsappSession() {
+            this.qrLoading = true;
+            try {
+                await fetch('/admin/api/whatsapp/restart-session', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-Token': '{{ request.state.admin_context.csrf_token }}'
+                    }
+                });
+                setTimeout(async () => {
+                    await this.checkWhatsappStatus();
+                    this.qrLoading = false;
+                }, 2000);
+            } catch (err) {
+                console.error(err);
+                this.qrLoading = false;
+            }
+        },
+
+        async logoutWhatsapp() {
+            if (!confirm('Deseja realmente desconectar o aparelho do WhatsApp?')) return;
+            this.qrLoading = true;
+            try {
+                await fetch('/admin/api/whatsapp/logout-session', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-Token': '{{ request.state.admin_context.csrf_token }}'
+                    }
+                });
+                setTimeout(async () => {
+                    await this.checkWhatsappStatus();
+                    this.qrLoading = false;
+                }, 2000);
+            } catch (err) {
+                console.error(err);
+                this.qrLoading = false;
+            }
         }
     };
 }
