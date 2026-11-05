@@ -94,7 +94,18 @@ class SupportSubagent(BaseSubagent):
                     seller_phone = branch.whatsapp_number
                     seller_name = f"Equipe {branch.name}"
 
-        seller_name = seller_name or "Equipe de Atendimento"
+        # Fallback para contato de suporte humano configurado nas configurações da empresa
+        if not seller_phone and self.company_settings:
+            cfg_phone = getattr(self.company_settings, "human_support_phone", None)
+            if cfg_phone:
+                seller_phone = cfg_phone
+                seller_name = getattr(self.company_settings, "human_support_name", None) or "Equipe de Atendimento"
+
+        seller_name = (
+            seller_name
+            or (getattr(self.company_settings, "human_support_name", None) if self.company_settings else None)
+            or "Equipe de Atendimento"
+        )
         client_name = getattr(self.user, "name", "Cliente")
         addr_str = f"\n📍 *Endereço:* {self.user.full_address}" if (self.user and getattr(self.user, "full_address", None)) else ""
 
@@ -115,16 +126,33 @@ class SupportSubagent(BaseSubagent):
             except Exception as e:
                 logger.warning("Falha ao notificar vendedor via WhatsApp: %s", e)
 
-        support_phone = seller_phone or "5585996277707"
-        support_link = f"https://wa.me/{support_phone}"
+        raw_support_phone = (
+            seller_phone
+            or (getattr(self.company_settings, "human_support_phone", None) if self.company_settings else None)
+            or "5585996277707"
+        )
+        clean_support_phone = "".join(filter(str.isdigit, raw_support_phone))
+        if len(clean_support_phone) in (10, 11) and not clean_support_phone.startswith("55"):
+            clean_support_phone = "55" + clean_support_phone
+        support_link = f"https://wa.me/{clean_support_phone}"
+
+        custom_support_msg = (
+            getattr(self.company_settings, "human_support_message", None)
+            if self.company_settings
+            else None
+        )
+        instructions = (
+            f"Informe ao cliente com carinho que o atendente/profissional {seller_name} já foi acionado(a) "
+            "no WhatsApp e assumirá a conversa em instantes para ajudá-lo(a)."
+        )
+        if custom_support_msg:
+            instructions += f" Mensagem adicional da empresa: '{custom_support_msg}'."
 
         return json.dumps({
             "status": "sucesso",
             "vendedor_notificado": seller_notified,
             "vendedor_nome": seller_name,
             "link_suporte": support_link,
-            "instrucoes": (
-                f"Informe ao cliente com carinho que o vendedor(a) {seller_name} já foi acionado(a) "
-                "no WhatsApp e assumirá a conversa em instantes para ajudá-lo(a)."
-            ),
+            "mensagem_customizada": custom_support_msg,
+            "instrucoes": instructions,
         }, ensure_ascii=False)

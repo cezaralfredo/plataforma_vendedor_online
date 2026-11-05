@@ -409,40 +409,212 @@
     <!-- 2. Módulo de Atendimento & IA -->
     <div x-show="activeTab === 'ai'" class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-6">
         <div>
-            <h3 class="text-sm font-semibold text-slate-900">Personalidade e Conduta da IA</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Defina a forma como a IA se apresenta e atende os clientes no WhatsApp.</p>
+            <h3 class="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                <i class="fas fa-brain text-purple-600"></i> Provedor de Inteligência Artificial & Modelo LLM
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">Selecione o cérebro que comandará o Orquestrador e os Subagentes (Agendamentos, Serviços, Catálogo, Checkout PIX e Suporte).</p>
         </div>
 
-        <div class="grid gap-6 sm:grid-cols-2">
-            <div>
-                <label class="block font-medium text-slate-700 text-xs mb-1">Nome Fantasia da Empresa *</label>
-                <input type="text" x-model="form.company_name" required placeholder="Ex: Barbearia Elegance" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500" />
-            </div>
+        <!-- Seletor de Provedor LLM com Cards Modernos -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <!-- OpenAI -->
+            <label class="flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all relative" :class="form.ai_provider === 'openai' ? 'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <i class="fas fa-bolt text-emerald-600"></i> OpenAI
+                    </span>
+                    <input type="radio" value="openai" x-model="form.ai_provider" @change="onProviderChange()" class="text-emerald-600" />
+                </div>
+                <p class="text-[11px] text-slate-500 leading-tight">GPT-4o Mini, GPT-4o. Alta precisão e velocidade.</p>
+            </label>
 
-            <div>
-                <label class="block font-medium text-slate-700 text-xs mb-1">Nome da Persona Virtual *</label>
-                <input type="text" x-model="form.assistant_name" required placeholder="Ex: Sofia, Clara, Alex" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500" />
-            </div>
+            <!-- Anthropic Claude -->
+            <label class="flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all relative" :class="form.ai_provider === 'anthropic' ? 'border-amber-500 bg-amber-50/40 ring-2 ring-amber-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <i class="fas fa-feather-alt text-amber-600"></i> Anthropic Claude
+                    </span>
+                    <input type="radio" value="anthropic" x-model="form.ai_provider" @change="onProviderChange()" class="text-amber-600" />
+                </div>
+                <p class="text-[11px] text-slate-500 leading-tight">Claude 3.5 Sonnet / Haiku. Excelente interpretação e tom humano.</p>
+            </label>
 
-            <div>
-                <label class="block font-medium text-slate-700 text-xs mb-1">Tom de Linguagem</label>
-                <select x-model="form.tone" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500">
-                    <option value="casual">Casual / Descontraído (Ideal para salões, barbearias, petshops)</option>
-                    <option value="formal">Formal / Clínico (Ideal para consultórios, médicos, advogados)</option>
-                    <option value="executive">Executivo / Direto (Ideal para consultorias e empresas B2B)</option>
-                </select>
-            </div>
+            <!-- Google Gemini -->
+            <label class="flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all relative" :class="form.ai_provider === 'gemini' ? 'border-blue-500 bg-blue-50/40 ring-2 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <i class="fab fa-google text-blue-600"></i> Google Gemini
+                    </span>
+                    <input type="radio" value="gemini" x-model="form.ai_provider" @change="onProviderChange()" class="text-blue-600" />
+                </div>
+                <p class="text-[11px] text-slate-500 leading-tight">Gemini 1.5 & 2.0 Flash. Custo ultrabaixo e janela gigante.</p>
+            </label>
 
-            <div class="flex items-center gap-3 pt-5">
-                <input type="checkbox" id="require_cpf" x-model="form.require_cpf" class="rounded border-slate-300 text-blue-600" />
-                <label for="require_cpf" class="text-xs font-medium text-slate-700 cursor-pointer">
-                    Exigir CPF no primeiro cadastro do cliente
+            <!-- Groq Cloud -->
+            <label class="flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all relative" :class="form.ai_provider === 'groq' ? 'border-orange-500 bg-orange-50/40 ring-2 ring-orange-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <i class="fas fa-tachometer-alt text-orange-600"></i> Groq Cloud
+                    </span>
+                    <input type="radio" value="groq" x-model="form.ai_provider" @change="onProviderChange()" class="text-orange-600" />
+                </div>
+                <p class="text-[11px] text-slate-500 leading-tight">Llama 3.3 70B em LPUs. Respostas quase instantâneas.</p>
+            </label>
+
+            <!-- OpenRouter -->
+            <label class="flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all relative" :class="form.ai_provider === 'openrouter' ? 'border-purple-500 bg-purple-50/40 ring-2 ring-purple-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <i class="fas fa-network-wired text-purple-600"></i> OpenRouter
+                    </span>
+                    <input type="radio" value="openrouter" x-model="form.ai_provider" @change="onProviderChange()" class="text-purple-600" />
+                </div>
+                <p class="text-[11px] text-slate-500 leading-tight">Acesso a centenas de modelos globais com uma única chave.</p>
+            </label>
+
+            <!-- Custom / Local (Ollama) -->
+            <label class="flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all relative" :class="form.ai_provider === 'custom' ? 'border-cyan-500 bg-cyan-50/40 ring-2 ring-cyan-500/20' : 'border-slate-200 hover:bg-slate-50'">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <i class="fas fa-server text-cyan-600"></i> Local / Ollama
+                    </span>
+                    <input type="radio" value="custom" x-model="form.ai_provider" @change="onProviderChange()" class="text-cyan-600" />
+                </div>
+                <p class="text-[11px] text-slate-500 leading-tight">Ollama, vLLM ou servidor local compatível com OpenAI.</p>
+            </label>
+        </div>
+
+        <!-- Parâmetros de Conexão do Provedor de IA -->
+        <div class="grid gap-4 sm:grid-cols-2 pt-2 border-t border-slate-100">
+            <div>
+                <label class="block font-medium text-slate-700 text-xs mb-1">
+                    Chave de API (API Key) do Provedor *
                 </label>
+                <div class="relative">
+                    <input :type="showAiKey ? 'text' : 'password'" x-model="form.ai_api_key" placeholder="Insira sua chave de API (sk-..., AIzaSy..., etc.)" class="w-full rounded-xl border border-slate-300 pr-10 px-3.5 py-2 text-xs focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500" />
+                    <button type="button" @click="showAiKey = !showAiKey" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600">
+                        <i :class="showAiKey ? 'fas fa-eye-slash text-xs' : 'fas fa-eye text-xs'"></i>
+                    </button>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Armazenada com segurança. Se vazia, o sistema opera em fallback determinístico com catálogo e checkout PIX.</p>
             </div>
 
-            <div class="sm:col-span-2">
-                <label class="block font-medium text-slate-700 text-xs mb-1">Mensagem de Boas-Vindas Customizada</label>
-                <textarea x-model="form.welcome_message" rows="2" placeholder="Ex: Olá! Seja bem-vindo à Barbearia Elegance. Em que posso te ajudar hoje?" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500"></textarea>
+            <div>
+                <label class="block font-medium text-slate-700 text-xs mb-1">
+                    Modelo de Linguagem (Model Name) *
+                </label>
+                <input type="text" x-model="form.ai_model" placeholder="Ex: gpt-4o-mini, claude-3-5-haiku-20241022, gemini-1.5-flash" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500" />
+                <p class="text-[11px] text-slate-500 mt-1">Sugerido automaticamente com base no provedor selecionado.</p>
+            </div>
+
+            <div x-show="form.ai_provider === 'custom' || form.ai_base_url">
+                <label class="block font-medium text-slate-700 text-xs mb-1">
+                    URL Base Customizada (Base URL)
+                </label>
+                <input type="text" x-model="form.ai_base_url" placeholder="Ex: http://localhost:11434/v1 para Ollama ou proxy privado" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500" />
+                <p class="text-[11px] text-slate-500 mt-1">Obrigatório para Ollama ou servidores locais. Deixe em branco para usar o endpoint oficial do provedor.</p>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block font-medium text-slate-700 text-xs">
+                        Temperatura / Criatividade
+                    </label>
+                    <span class="text-xs font-mono font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200" x-text="Number(form.ai_temperature).toFixed(2)"></span>
+                </div>
+                <input type="range" min="0.0" max="1.0" step="0.05" x-model.number="form.ai_temperature" class="w-full accent-purple-600 cursor-pointer" />
+                <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                    <span>0.0 (Mais preciso para agendamentos e preços)</span>
+                    <span>1.0 (Mais conversacional)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Identidade e Personalidade da Persona -->
+        <div class="pt-4 border-t border-slate-100">
+            <h4 class="text-xs font-semibold text-slate-900 mb-3 flex items-center gap-1.5">
+                <i class="fas fa-id-card text-slate-500"></i> Identidade e Persona de Atendimento
+            </h4>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Nome Fantasia da Empresa *</label>
+                    <input type="text" x-model="form.company_name" required placeholder="Ex: Salão Elegance" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500" />
+                </div>
+
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Nome da Persona Virtual *</label>
+                    <input type="text" x-model="form.assistant_name" required placeholder="Ex: Sofia, Clara, Alex" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500" />
+                </div>
+
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Arquétipo & Tom de Atendimento da IA</label>
+                    <select x-model="form.tone" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500">
+                        <option value="consultative">Consultivo / Especialista (Diagnóstico, qualificação e alto valor)</option>
+                        <option value="closer">Fechador Ágil (Decisão rápida, dinamismo, agendamento ágil)</option>
+                        <option value="relational">Relacional / Acolhedor (Empatia, conexão emocional e fidelização)</option>
+                        <option value="casual">Casual / Descontraído (Moderno, acessível e descontraído)</option>
+                        <option value="executive">Executivo / Comercial (Direto ao ponto, B2B e foco em eficiência)</option>
+                        <option value="formal">Formal / Clínico (Sobriedade, cortesia clássica e respeito)</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-3 pt-5">
+                    <input type="checkbox" id="require_cpf" x-model="form.require_cpf" class="rounded border-slate-300 text-blue-600" />
+                    <label for="require_cpf" class="text-xs font-medium text-slate-700 cursor-pointer">
+                        Exigir CPF no primeiro cadastro do cliente
+                    </label>
+                </div>
+
+                <div class="sm:col-span-2">
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Mensagem de Boas-Vindas Padrão (Opcional)</label>
+                    <textarea x-model="form.welcome_message" rows="2" placeholder="Ex: Olá! Seja muito bem-vindo ao nosso espaço. Como posso te ajudar hoje?" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500"></textarea>
+                </div>
+
+                <div class="sm:col-span-2">
+                    <label class="block font-medium text-slate-700 text-xs mb-1">
+                        Instruções Customizadas para o Negócio (Prompt do Sistema)
+                    </label>
+                    <textarea x-model="form.ai_system_prompt" rows="3" placeholder="Ex: Informe aos clientes que atendemos com horário marcado. Em caso de atraso superior a 15 minutos, o horário precisará ser remarcado." class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500"></textarea>
+                    <p class="text-[11px] text-slate-500 mt-1">Essas instruções são injetadas diretamente na memória do Orquestrador e aplicadas junto aos subagentes de atendimento e agendamentos.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transbordo para Atendimento Humano & Suporte -->
+        <div class="pt-4 border-t border-slate-100">
+            <div class="mb-3">
+                <h4 class="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+                    <i class="fas fa-headset text-emerald-600"></i> Contato para Atendimento Humano (Transbordo & Suporte)
+                </h4>
+                <p class="text-[11px] text-slate-500 mt-0.5">
+                    Configuração do canal humano caso o cliente solicite falar com atendente ou caso o Orquestrador precise transferir a conversa.
+                </p>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">
+                        WhatsApp do Atendimento Humano / Suporte Geral
+                    </label>
+                    <input type="text" x-model="form.human_support_phone" placeholder="Ex: 5585999990000" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500" />
+                    <p class="text-[11px] text-slate-400 mt-1">Número com DDI e DDD (ex: 5585999990000). Usado como contato central caso o cliente não possua atendente ou profissional atribuído.</p>
+                </div>
+
+                <div>
+                    <label class="block font-medium text-slate-700 text-xs mb-1">
+                        Nome da Equipe ou Atendente de Plantão
+                    </label>
+                    <input type="text" x-model="form.human_support_name" placeholder="Ex: Equipe de Atendimento / Recepção" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500" />
+                    <p class="text-[11px] text-slate-400 mt-1">Nome exibido ao cliente e utilizado nas notificações de transferência.</p>
+                </div>
+
+                <div class="sm:col-span-2">
+                    <label class="block font-medium text-slate-700 text-xs mb-1">
+                        Mensagem Customizada de Transferência (Opcional)
+                    </label>
+                    <textarea x-model="form.human_support_message" rows="2" placeholder="Ex: Vou transferir você agora para um de nossos atendentes especializados. Um instante!" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500"></textarea>
+                    <p class="text-[11px] text-slate-400 mt-1">Se preenchido, personaliza a mensagem enviada antes do link de contato.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -680,6 +852,7 @@ function companySettingsManager() {
         message: '',
         messageError: false,
         copiedPix: false,
+        showAiKey: false,
         form: {
             company_name: settings.company_name || 'Minha Empresa',
             assistant_name: settings.assistant_name || 'Assistente',
@@ -705,6 +878,15 @@ function companySettingsManager() {
                 sandbox: !!creds.sandbox,
                 ...creds
             },
+            ai_provider: settings.ai_provider || 'openai',
+            ai_model: settings.ai_model || 'gpt-4o-mini',
+            ai_api_key: settings.ai_api_key || '',
+            ai_base_url: settings.ai_base_url || '',
+            ai_temperature: settings.ai_temperature !== undefined ? Number(settings.ai_temperature) : 0.3,
+            ai_system_prompt: settings.ai_system_prompt || '',
+            human_support_phone: settings.human_support_phone || '',
+            human_support_name: settings.human_support_name || 'Equipe de Atendimento',
+            human_support_message: settings.human_support_message || '',
             whatsapp_provider: settings.whatsapp_provider || 'evolution',
             evolution_base_url: settings.evolution_base_url || '',
             evolution_instance: settings.evolution_instance || '',
@@ -715,6 +897,9 @@ function companySettingsManager() {
             meta_phone_number_id: settings.meta_phone_number_id || '',
             meta_waba_id: settings.meta_waba_id || '',
             meta_access_token: settings.meta_access_token || '',
+            meta_verify_token: settings.meta_verify_token || '',
+            coexistence_enabled: settings.coexistence_enabled !== undefined ? !!settings.coexistence_enabled : true,
+            coexistence_pause_minutes: settings.coexistence_pause_minutes !== undefined ? Number(settings.coexistence_pause_minutes) : 45,
             commission_model: settings.commission_model || 'percentage',
             default_commission_rate: settings.default_commission_rate || 0,
             split_enabled: !!settings.split_enabled
@@ -845,6 +1030,21 @@ function companySettingsManager() {
             const crcHex = crc.toString(16).toUpperCase().padStart(4, '0');
             this.form.pix_copy_paste = payload + crcHex;
             this.showMessage('Código PIX Copia e Cola padrão BACEN gerado com sucesso!');
+        },
+
+        onProviderChange() {
+            const defaults = {
+                'openai': 'gpt-4o-mini',
+                'anthropic': 'claude-3-5-haiku-20241022',
+                'gemini': 'gemini-1.5-flash',
+                'groq': 'llama-3.3-70b-versatile',
+                'openrouter': 'openai/gpt-4o-mini',
+                'custom': 'llama3.2'
+            };
+            const defaultModels = Object.values(defaults);
+            if (!this.form.ai_model || defaultModels.includes(this.form.ai_model)) {
+                this.form.ai_model = defaults[this.form.ai_provider] || 'gpt-4o-mini';
+            }
         },
 
         async saveSettings() {

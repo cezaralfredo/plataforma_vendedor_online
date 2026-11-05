@@ -29,6 +29,9 @@ class CompanySettingsService:
                 assistant_name="Assistente",
                 tone="casual",
                 require_cpf=False,
+                human_support_phone=None,
+                human_support_name="Equipe de Atendimento",
+                human_support_message=None,
                 custom_settings={},
             )
             self.db.add(settings)

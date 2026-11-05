@@ -249,3 +249,57 @@ def test_admin_settings_waha_update_and_html_render(
     assert get_res.status_code == 200
     assert "WAHA" in get_res.text
     assert "https://waha.anaue.com.br" in get_res.text
+
+
+def test_admin_settings_ai_and_human_support_update_and_html_render(
+    client: TestClient, db_session: Session
+):
+    login(client)
+    csrf = session_data(client)["csrf_token"]
+    headers = {"X-CSRF-Token": csrf}
+
+    ai_payload = {
+        "ai_provider": "anthropic",
+        "ai_model": "claude-3-5-haiku-20241022",
+        "ai_api_key": "sk-ant-api03-testkey123",
+        "ai_base_url": "https://api.anthropic.com/v1",
+        "ai_temperature": 0.45,
+        "ai_system_prompt": "Você é a assistente virtual especializada do Salão Elegance.",
+        "human_support_phone": "5585999887766",
+        "human_support_name": "Recepção VIP",
+        "human_support_message": "Vou te transferir para nossa recepcionista agora mesmo!",
+    }
+
+    res = client.post(
+        "/admin/api/settings",
+        headers=headers,
+        json=ai_payload,
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["ai_provider"] == "anthropic"
+    assert data["ai_model"] == "claude-3-5-haiku-20241022"
+    assert data["ai_api_key"] == "sk-ant-api03-testkey123"
+    assert float(data["ai_temperature"]) == 0.45
+    assert data["ai_system_prompt"] == "Você é a assistente virtual especializada do Salão Elegance."
+    assert data["human_support_phone"] == "5585999887766"
+    assert data["human_support_name"] == "Recepção VIP"
+    assert data["human_support_message"] == "Vou te transferir para nossa recepcionista agora mesmo!"
+
+    # Verifica persistência no banco
+    db_setting = db_session.query(CompanySettings).first()
+    assert db_setting.ai_provider == "anthropic"
+    assert db_setting.ai_model == "claude-3-5-haiku-20241022"
+    assert db_setting.human_support_phone == "5585999887766"
+    assert db_setting.human_support_name == "Recepção VIP"
+
+    # Confirma que na página GET /admin/settings os dados chegam no HTML
+    get_res = client.get("/admin/settings")
+    assert get_res.status_code == 200
+    assert "anthropic" in get_res.text
+    assert "claude-3-5-haiku-20241022" in get_res.text
+    assert "5585999887766" in get_res.text
+    assert "Recep" in get_res.text
+    assert "Provedor de Inteligência Artificial &amp; Modelo LLM" in get_res.text or "Provedor de Inteligência Artificial & Modelo LLM" in get_res.text
+    assert "Contato para Atendimento Humano (Transbordo &amp; Suporte)" in get_res.text or "Contato para Atendimento Humano (Transbordo & Suporte)" in get_res.text
+

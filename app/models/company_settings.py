@@ -117,6 +117,17 @@ class CompanySettings(Base):
         Text, nullable=True
     )
 
+    # 5. Módulo de Contato & Suporte Humano (Transbordo)
+    human_support_phone: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )
+    human_support_name: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, default="Equipe de Atendimento"
+    )
+    human_support_message: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
+
     # Configurações adicionais extensíveis
     custom_settings: Mapped[dict] = mapped_column(
         JSON, nullable=False, default=dict
