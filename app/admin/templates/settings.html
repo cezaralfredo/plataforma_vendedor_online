@@ -673,81 +673,35 @@
                 </div>
             </div>
 
-            <!-- WAHA Fields -->
-            <div x-show="form.whatsapp_provider === 'waha'" class="sm:col-span-2 space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/20 p-5">
-                <div class="flex items-center gap-2 border-b border-emerald-100 pb-3">
-                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white text-xs">
-                        <i class="fas fa-server"></i>
-                    </span>
-                    <div>
-                        <h4 class="text-xs font-bold text-slate-900">Configurações do Servidor WAHA</h4>
-                        <p class="text-[11px] text-slate-500">Conecte sua instância do WAHA (WhatsApp HTTP API) rodando em Docker ou na VPS.</p>
-                    </div>
-                </div>
-
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <div>
-                        <label class="block font-medium text-slate-700 text-xs mb-1">URL Base do WAHA *</label>
-                        <input type="text" x-model="form.waha_base_url" placeholder="Ex: http://localhost:3000 ou https://waha.seudominio.com" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 font-mono" />
-                        <p class="text-[10px] text-slate-500 mt-0.5">Endereço HTTP onde a API do WAHA está escutando.</p>
-                    </div>
-
-                    <div>
-                        <label class="block font-medium text-slate-700 text-xs mb-1">Nome da Sessão WAHA *</label>
-                        <input type="text" x-model="form.waha_session" placeholder="default" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 font-mono" />
-                        <p class="text-[10px] text-slate-500 mt-0.5">Identificador da sessão no WAHA (o padrão é 'default').</p>
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label class="block font-medium text-slate-700 text-xs mb-1">Chave de API / Token WAHA (Opcional)</label>
-                        <input type="password" x-model="form.waha_api_key" placeholder="Ex: sua-chave-secreta-configurada-em-WAHA_API_KEY" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 font-mono" />
-                        <p class="text-[10px] text-slate-500 mt-0.5">Preencha apenas se seu container WAHA estiver protegido por chave de API (`X-Api-Key`).</p>
-                    </div>
-
-                                        <!-- Status & QR Code Connection Card -->
-                    <div class="sm:col-span-2 rounded-2xl border border-emerald-300 bg-gradient-to-r from-emerald-50/80 to-teal-50/60 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" :class="whatsappStatus === 'WORKING' ? 'bg-emerald-600' : (whatsappStatus === 'SCAN_QR_CODE' ? 'bg-amber-500' : 'bg-slate-400')">
-                                <i class="fab fa-whatsapp text-xl"></i>
+            <!-- WAHA (WhatsApp Conexão Direta) -->
+            <div x-show="form.whatsapp_provider === 'waha'" class="sm:col-span-2 space-y-4">
+                <!-- Status & QR Code Connection Card -->
+                <div class="rounded-2xl border border-emerald-300 bg-gradient-to-r from-emerald-50/80 to-teal-50/60 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3.5">
+                        <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-xs" :class="whatsappStatus === 'WORKING' ? 'bg-emerald-600' : (whatsappStatus === 'SCAN_QR_CODE' ? 'bg-amber-500' : 'bg-slate-400')">
+                            <i class="fab fa-whatsapp text-2xl"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h4 class="text-xs font-bold text-slate-900">Conexão do WhatsApp</h4>
+                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                      :class="{
+                                          'bg-emerald-100 text-emerald-800 border border-emerald-300': whatsappStatus === 'WORKING',
+                                          'bg-amber-100 text-amber-800 border border-amber-300': whatsappStatus === 'SCAN_QR_CODE',
+                                          'bg-blue-100 text-blue-800 border border-blue-300': whatsappStatus === 'STARTING',
+                                          'bg-slate-100 text-slate-700 border border-slate-300': !whatsappStatus || whatsappStatus === 'STOPPED' || whatsappStatus === 'FAILED'
+                                      }"
+                                      x-text="whatsappStatusLabel">
+                                </span>
                             </div>
-                            <div>
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <h4 class="text-xs font-bold text-slate-900">Conexão do WhatsApp</h4>
-                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                                          :class="{
-                                              'bg-emerald-100 text-emerald-800 border border-emerald-300': whatsappStatus === 'WORKING',
-                                              'bg-amber-100 text-amber-800 border border-amber-300': whatsappStatus === 'SCAN_QR_CODE',
-                                              'bg-blue-100 text-blue-800 border border-blue-300': whatsappStatus === 'STARTING',
-                                              'bg-slate-100 text-slate-700 border border-slate-300': !whatsappStatus || whatsappStatus === 'STOPPED' || whatsappStatus === 'FAILED'
-                                          }"
-                                          x-text="whatsappStatusLabel">
-                                    </span>
-                                </div>
-                                <p class="text-[11px] text-slate-600 mt-0.5" x-text="whatsappConnectedPhone ? 'Número conectado: +' + whatsappConnectedPhone : 'Conecte o WhatsApp da sua loja escaneando o QR Code direto pela tela.'"></p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2 w-full sm:w-auto">
-                            <button type="button" @click="openQrModal()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer">
-                                <i class="fas fa-qrcode"></i>
-                                <span x-text="whatsappStatus === 'WORKING' ? 'Gerenciar Conexão' : 'Escanear QR Code'"></span>
-                            </button>
+                            <p class="text-[11px] text-slate-600 mt-1" x-text="whatsappConnectedPhone ? 'Número conectado: +' + whatsappConnectedPhone : 'Conecte o WhatsApp escaneando o QR Code diretamente pela tela.'"></p>
                         </div>
                     </div>
-
-                    <!-- Webhook URL informativa do WAHA -->
-                    <div class="sm:col-span-2 rounded-xl border border-emerald-200 bg-white p-3.5 space-y-2">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-semibold text-emerald-900 flex items-center gap-1.5">
-                                <i class="fas fa-satellite-dish text-emerald-600"></i>
-                                Endpoint de Webhook para Inbound no WAHA
-                            </span>
-                            <button type="button" @click="copyWebhookUrl('waha')" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 cursor-pointer">
-                                <i class="fas fa-copy text-xs"></i>
-                                <span x-text="copiedWahaWebhook ? 'Copiado!' : 'Copiar URL'"></span>
-                            </button>
-                        </div>
-                        <input type="text" readonly :value="getWebhookUrl('waha')" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-mono text-slate-600 select-all" />
-                        <p class="text-[10px] text-slate-500">Configure esta URL na sua sessão do WAHA para receber mensagens e eventos: <code>message</code> e <code>message.any</code>.</p>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <button type="button" @click="openQrModal()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer">
+                            <i class="fas fa-qrcode"></i>
+                            <span x-text="whatsappStatus === 'WORKING' ? 'Gerenciar Conexão' : 'Escanear QR Code'"></span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1180,6 +1134,10 @@ function companySettingsManager() {
                 this.form.gateway_credentials.merchant_name = this.form.pix_merchant_name;
                 this.form.gateway_credentials.merchant_city = this.form.pix_merchant_city;
                 this.form.gateway_credentials.bank_name = this.form.pix_bank_name;
+
+                if (!this.form.waha_base_url) this.form.waha_base_url = 'http://waha:3000';
+                if (!this.form.waha_session) this.form.waha_session = 'default';
+                if (!this.form.waha_api_key) this.form.waha_api_key = 'waha_anaue_secret_2026';
 
                 const res = await fetch('/admin/api/settings', {
                     method: 'POST',
