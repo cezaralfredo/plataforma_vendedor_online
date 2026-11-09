@@ -19,8 +19,22 @@ def _as_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
-def format_payment_confirmation_message(appointment: Appointment, payment: Payment) -> str:
+def format_payment_confirmation_message(appointment: Appointment | None, payment: Payment) -> str:
     """Gera mensagem formatada e humanizada de confirmação para envio via WhatsApp."""
+    if not appointment:
+        user_name = payment.user.name if payment.user else "Cliente"
+        product_name = payment.product.name if payment.product else "Produto"
+        amount = f"R$ {payment.amount_cents / 100:.2f}"
+        billing = (payment.billing_type or "PIX").upper()
+        return (
+            f"Olá, {user_name}! 👋\n\n"
+            f"✅ Seu pagamento de {amount} ({billing}) foi confirmado com sucesso!\n\n"
+            f"📦 *Pedido Confirmado:*\n"
+            f"• *Item:* {product_name}\n"
+            f"• *Código do Pagamento:* #{payment.id}\n\n"
+            f"Seu pedido foi registrado e nossa equipe já está preparando a separação. Qualquer dúvida, é só responder por aqui!"
+        )
+
     user_name = appointment.user.name if appointment.user else "Cliente"
     service_name = appointment.service.name if appointment.service else "Serviço"
     professional_name = appointment.professional.name if appointment.professional else "Profissional"

@@ -23,6 +23,8 @@ class ProductService:
     def get_by_id(self, product_id: int) -> Product | None:
         return self.db.query(Product).filter(Product.id == product_id).first()
 
+    get_product = get_by_id
+
     def find_by_name(self, name: str) -> list[Product]:
         query = f"%{name.strip().lower()}%"
         return (

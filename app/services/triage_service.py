@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -131,6 +131,7 @@ class TriageService:
         frust_obj = answers.get("frustration", {})
         frust_score = float(frust_obj.get("score", 0.0))
 
+        frust_level: Literal["calmo", "impaciente", "irritado"]
         if frust_score < 0.6:
             frust_level = "calmo"
         elif frust_score < 1.3:

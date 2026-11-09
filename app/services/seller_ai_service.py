@@ -177,11 +177,11 @@ class SellerAIService:
                 logger.info("Atendimento por IA retomado para o cliente %s pelo comando do usuário.", phone)
             else:
                 try:
-                    paused_until = datetime.fromisoformat(ai_paused_until_str)
-                    if paused_until.tzinfo is None:
-                        paused_until = paused_until.replace(tzinfo=UTC)
-                    if datetime.now(UTC) < paused_until:
-                        logger.info("IA pausada para o telefone %s até %s (atendente humano em atendimento).", phone, paused_until)
+                    paused_until_dt = datetime.fromisoformat(ai_paused_until_str)
+                    if paused_until_dt.tzinfo is None:
+                        paused_until_dt = paused_until_dt.replace(tzinfo=UTC)
+                    if datetime.now(UTC) < paused_until_dt:
+                        logger.info("IA pausada para o telefone %s até %s (atendente humano em atendimento).", phone, paused_until_dt)
                         return ""
                 except Exception:
                     logger.debug("Falha ao analisar data de pausa de IA para %s", phone)

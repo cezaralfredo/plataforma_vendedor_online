@@ -25,6 +25,8 @@ class ProfessionalService:
             return self.repo.list_active()
         return self.repo.list(skip=skip, limit=limit)
 
+    list_professionals = list
+
     def update(self, professional_id: int, data: ProfessionalUpdate):
         return self.repo.update(
             professional_id, **data.model_dump(exclude_unset=True)

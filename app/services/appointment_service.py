@@ -167,6 +167,8 @@ class AppointmentService:
     def cancel(self, appointment_id: int):
         return self.transition(appointment_id, "cancel")
 
+    cancel_appointment = cancel
+
     def confirm(self, appointment_id: int):
         return self.transition(appointment_id, "confirm")
 

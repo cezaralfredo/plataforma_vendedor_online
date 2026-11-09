@@ -76,7 +76,7 @@ class SupportSubagent(BaseSubagent):
         # 3. Notificação ativa no WhatsApp do Vendedor Humano
         seller_notified = False
         client_phone = getattr(self.user, "whatsapp_number", None) or getattr(self.user, "phone", "")
-        clean_client_phone = "".join(filter(str.isdigit, client_phone))
+        clean_client_phone = "".join(c for c in str(client_phone or "") if c.isdigit())
         if len(clean_client_phone) in (10, 11) and not clean_client_phone.startswith("55"):
             clean_client_phone = "55" + clean_client_phone
 

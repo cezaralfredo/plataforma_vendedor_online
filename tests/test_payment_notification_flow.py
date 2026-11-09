@@ -36,6 +36,33 @@ def test_format_payment_confirmation_message(db_session: Session):
     assert f"#{appointment.id}" in msg
 
 
+def test_format_payment_confirmation_message_for_product(db_session: Session):
+    from app.models.payment import Payment
+    from app.models.product import Product
+    from app.models.user import User
+
+    user = User(name="Maria Silva", phone="5511999999999", active=True)
+    product = Product(name="Shampoo Hidratante", price_cents=4500, stock_quantity=10, active=True)
+    db_session.add_all([user, product])
+    db_session.commit()
+
+    payment = Payment(
+        user_id=user.id,
+        product_id=product.id,
+        amount_cents=4500,
+        billing_type="pix",
+        status="confirmed",
+    )
+    db_session.add(payment)
+    db_session.commit()
+
+    msg = format_payment_confirmation_message(None, payment)
+    assert "Maria Silva" in msg
+    assert "Shampoo Hidratante" in msg
+    assert "R$ 45.00" in msg
+    assert "PIX" in msg
+
+
 def test_build_payment_notification_payload(db_session: Session):
     entities = seed_data(db_session)
     appointment = seed_appointment(db_session, entities)

@@ -242,5 +242,16 @@ class AsaasClient:
     async def get_pix_qr_code(self, payment_id: str) -> dict:
         return await self._safe_get(f"/payments/{payment_id}/pixQrCode")
 
-    async def refund_payment(self, payment_id: str) -> dict:
-        return await self._post(f"/payments/{payment_id}/refund", {})
+    async def refund_payment(
+        self,
+        payment_id: str,
+        value: float | None = None,
+        description: str | None = None,
+        **kwargs: Any,
+    ) -> dict:
+        body: dict[str, Any] = {}
+        if value is not None:
+            body["value"] = value
+        if description:
+            body["description"] = description
+        return await self._post(f"/payments/{payment_id}/refund", body)

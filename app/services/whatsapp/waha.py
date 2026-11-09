@@ -295,8 +295,8 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
                             headers=self._headers(),
                             timeout=5.0,
                         )
-                    except Exception:
-                        pass
+                    except Exception as stop_exc:
+                        logger.debug("Tentativa de parar sessão WAHA ignorada: %s", stop_exc)
 
                     await client.post(
                         f"{self.base_url}/api/sessions/{self.session}/start",
@@ -350,8 +350,8 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
                         headers=self._headers(),
                         timeout=5.0,
                     )
-                except Exception:
-                    pass
+                except Exception as stop_exc:
+                    logger.debug("Tentativa de parar sessão WAHA ignorada: %s", stop_exc)
 
                 res = await client.post(
                     f"{self.base_url}/api/sessions/{self.session}/start",

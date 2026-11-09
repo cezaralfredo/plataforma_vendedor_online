@@ -192,6 +192,20 @@ class AvailabilityService:
                    for period in self.check_availability(professional_id, date_str))
 
 
+    def get_available_slots(
+        self, professional_id: int, date_str: str, service_id: int | None = None
+    ) -> list[str]:
+        """Retorna lista de horários formatados (HH:MM) para IA e canais conversacionais."""
+        if service_id:
+            slots = self.get_time_slots_for_service(professional_id, service_id, date_str)
+        else:
+            slots = self.check_availability(professional_id, date_str)
+        return [
+            s.start.strftime("%H:%M") if hasattr(s.start, "strftime") else str(s.start)
+            for s in slots
+        ]
+
+
 def _dedupe_slots(slots: list[TimeSlot]) -> list[TimeSlot]:
     """Remove duplicate time slots while preserving order.
 
