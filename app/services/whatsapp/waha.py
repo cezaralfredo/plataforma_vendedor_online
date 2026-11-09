@@ -265,10 +265,22 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
                 )
 
                 if res.status_code == 404:
-                    # Sessão não existe, cria e inicializa
+                    # Sessão não existe, cria e inicializa com webhook do RIA 360
+                    webhook_url = "http://ria360-api:8000/api/webhooks/whatsapp/waha"
                     await client.post(
                         f"{self.base_url}/api/sessions/",
-                        json={"name": self.session},
+                        json={
+                            "name": self.session,
+                            "start": True,
+                            "config": {
+                                "webhooks": [
+                                    {
+                                        "url": webhook_url,
+                                        "events": ["message", "message.any", "session.status"],
+                                    }
+                                ]
+                            },
+                        },
                         headers=self._headers(),
                     )
                     await client.post(
@@ -315,6 +327,7 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
 
                 qr_code = None
                 if status == "SCAN_QR_CODE":
+                    # 1. Tenta obter o QR code em imagem binária
                     try:
                         qr_res = await client.get(
                             f"{self.base_url}/api/{self.session}/auth/qr",
@@ -322,16 +335,46 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
                             timeout=5.0,
                         )
                         if qr_res.status_code == 200 and qr_res.content:
-                            b64 = base64.b64encode(qr_res.content).decode("ascii")
-                            qr_code = f"data:image/png;base64,{b64}"
+                            ct = qr_res.headers.get("content-type", "")
+                            if "image" in ct or qr_res.content.startswith(b"\x89PNG") or qr_res.content.startswith(b"\xff\xd8"):
+                                b64 = base64.b64encode(qr_res.content).decode("ascii")
+                                qr_code = f"data:image/png;base64,{b64}"
+                            else:
+                                # Tenta parse JSON se o WAHA retornou payload
+                                try:
+                                    qr_json = qr_res.json()
+                                    if isinstance(qr_json, dict):
+                                        if qr_json.get("image"):
+                                            img_val = qr_json["image"]
+                                            qr_code = img_val if img_val.startswith("data:") else f"data:image/png;base64,{img_val}"
+                                        elif qr_json.get("raw"):
+                                            qr_code = qr_json["raw"]
+                                except Exception as json_err:
+                                    logger.debug("Falha ao analisar JSON do QR WAHA: %s", json_err)
                     except Exception as qr_err:
                         logger.warning("Falha ao obter imagem do QR Code: %s", qr_err)
+
+                    # 2. Se não conseguiu via auth/qr, tenta via screenshot
+                    if not qr_code:
+                        try:
+                            sc_res = await client.get(
+                                f"{self.base_url}/api/screenshot?session={self.session}",
+                                headers=self._headers(),
+                                timeout=5.0,
+                            )
+                            if sc_res.status_code == 200 and sc_res.content and sc_res.content.startswith(b"\x89PNG"):
+                                b64 = base64.b64encode(sc_res.content).decode("ascii")
+                                qr_code = f"data:image/png;base64,{b64}"
+                        except Exception as sc_err:
+                            logger.debug("Tentativa de screenshot ignorada: %s", sc_err)
 
                 return {
                     "success": True,
                     "status": status,
                     "me": me,
                     "qr_code": qr_code,
+                    "session": self.session,
+                    "engine": data.get("engine", "NOWEB"),
                 }
         except Exception as exc:
             logger.error("Erro ao consultar QR status do WAHA: %s", exc)

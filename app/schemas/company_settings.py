@@ -316,3 +316,11 @@ class CompanySettingsResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class WhatsAppTestMessageRequest(BaseModel):
+    phone: str = Field(description="Número de WhatsApp com DDD (ex: 5511999998888)")
+    message: str = Field(
+        default="Olá! Mensagem de teste enviada pela plataforma Anauê Design | RIA 360.",
+        description="Conteúdo da mensagem de teste",
+    )

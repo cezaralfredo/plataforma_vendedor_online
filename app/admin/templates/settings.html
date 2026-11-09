@@ -697,7 +697,11 @@
                             <p class="text-[11px] text-slate-600 mt-1" x-text="whatsappConnectedPhone ? 'Número conectado: +' + whatsappConnectedPhone : 'Conecte o WhatsApp escaneando o QR Code diretamente pela tela.'"></p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <a href="/admin/whatsapp" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer">
+                            <i class="fab fa-whatsapp text-emerald-400"></i>
+                            <span>Abrir Tela Completa WhatsApp</span>
+                        </a>
                         <button type="button" @click="openQrModal()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer">
                             <i class="fas fa-qrcode"></i>
                             <span x-text="whatsappStatus === 'WORKING' ? 'Gerenciar Conexão' : 'Escanear QR Code'"></span>

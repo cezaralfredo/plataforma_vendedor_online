@@ -40,7 +40,11 @@ from app.models.payment import Payment
 from app.models.service import Service
 from app.models.user import User
 from app.schemas.availability import AvailabilityCreate, AvailabilityUpdate
-from app.schemas.company_settings import CompanySettingsResponse, CompanySettingsUpdate
+from app.schemas.company_settings import (
+    CompanySettingsResponse,
+    CompanySettingsUpdate,
+    WhatsAppTestMessageRequest,
+)
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from app.schemas.professional import ProfessionalCreate, ProfessionalUpdate
 from app.schemas.user import UserImportRequest, UserImportSummary
@@ -530,6 +534,37 @@ async def api_whatsapp_logout(db: Session = Depends(get_db)):
     gateway = WhatsAppGatewayService(db)
     result = await gateway.logout_session()
     return jsonable_encoder(result)
+
+
+@router.get(
+    "/whatsapp",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_admin)],
+)
+async def whatsapp_connection_page(request: Request, db: Session = Depends(get_db)):
+    service = CompanySettingsService(db)
+    settings = service.get_or_create_default()
+    return templates.TemplateResponse(
+        "whatsapp.html",
+        {
+            "request": request,
+            "settings": jsonable_encoder(CompanySettingsResponse.model_validate(settings)),
+        },
+    )
+
+
+@router.post("/api/whatsapp/test-message", dependencies=[Depends(require_admin_mutation)])
+async def api_whatsapp_test_message(payload: WhatsAppTestMessageRequest, db: Session = Depends(get_db)):
+    from app.services.whatsapp.gateway import WhatsAppGatewayService
+
+    gateway = WhatsAppGatewayService(db)
+    result = await gateway.send_text(payload.phone, payload.message)
+    if not result.success:
+        raise HTTPException(
+            status_code=400,
+            detail=result.error or "Falha ao enviar mensagem de teste pelo WhatsApp.",
+        )
+    return {"success": True, "message_id": result.message_id}
 
 
 @router.get(

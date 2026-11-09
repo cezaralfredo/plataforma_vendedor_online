@@ -80,6 +80,11 @@
                         <i class="fas fa-box-open mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/products') %}text-blue-600{% endif %}"></i>
                         Produtos
                     </a>
+                    <a href="/admin/whatsapp"
+                       class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/whatsapp') %}bg-emerald-50/90 text-emerald-700 ring-1 ring-emerald-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
+                        <i class="fab fa-whatsapp mr-3 w-5 text-center text-emerald-600"></i>
+                        Conexão WhatsApp
+                    </a>
                     <a href="/admin/settings"
                        class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/settings') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
                         <i class="fas fa-sliders-h mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/settings') %}text-blue-600{% endif %}"></i>

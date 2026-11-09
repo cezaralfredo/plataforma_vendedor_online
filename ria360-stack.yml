@@ -42,6 +42,9 @@ services:
       APP_TIMEZONE: ${APP_TIMEZONE:-America/Sao_Paulo}
       DOMAIN: ${DOMAIN:-ria.anauedesign.com.br}
       DEBUG: "false"
+      WAHA_BASE_URL: ${WAHA_BASE_URL:-http://waha:3000}
+      WAHA_SESSION: ${WAHA_SESSION:-default}
+      WAHA_API_KEY: ${WAHA_API_KEY:-}
       ASAAS_API_KEY: ${ASAAS_API_KEY:-}
       ASAAS_BASE_URL: ${ASAAS_BASE_URL:-https://api.asaas.com/v3}
       ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-token_seguro_placeholder_32_chars_ok}
@@ -61,9 +64,35 @@ services:
           - ria360
           - ria360-api
 
+  waha:
+    image: "${WAHA_IMAGE:-devlikeapro/waha:noweb-arm-2026.7.2}"
+    container_name: ria360-waha
+    restart: unless-stopped
+    environment:
+      - WAHA_ZIP_LOGS=true
+      - WAHA_LOG_FORMAT=JSON
+      - WAHA_PRINT_QR=false
+      - WAHA_DASHBOARD_ENABLED=false
+      - WHATSAPP_DEFAULT_ENGINE=NOWEB
+      - WHATSAPP_RESTART_ALL_SESSIONS=true
+      - WHATSAPP_HOOK_URL=http://ria360-api:8000/api/webhooks/whatsapp/waha
+      - WHATSAPP_HOOK_EVENTS=message.any,message.ack,message.edited,message.revoked,message.reaction,session.status,state.change
+    volumes:
+      - ria360_waha_data:/app/.sessions
+      - ria360_waha_media:/app/.media
+    networks:
+      ria360_net:
+        aliases:
+          - waha
+          - ria360-waha
+
 volumes:
   ria360_pgdata:
     name: ria360_pgdata
+  ria360_waha_data:
+    name: ria360_waha_data
+  ria360_waha_media:
+    name: ria360_waha_media
 
 networks:
   ria360_net:

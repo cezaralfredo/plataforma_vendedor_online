@@ -24,13 +24,35 @@ class WhatsAppGatewayService:
         self.settings: CompanySettings = CompanySettingsService(db).get_or_create_default()
 
     def get_provider(self, provider_name: str | None = None) -> BaseWhatsAppProvider:
-        name = (provider_name or self.settings.whatsapp_provider or "evolution").lower()
+        import os
+
+        name = (provider_name or self.settings.whatsapp_provider or "waha").lower()
+
+        # Se provider não foi explicitamente passado e evolution não possui URL configurada,
+        # mas waha_base_url ou WAHA_BASE_URL estão disponíveis, utiliza waha
+        if not provider_name and name == "evolution" and not self.settings.evolution_base_url:
+            name = "waha"
 
         if name == "waha":
+            base_url = (
+                self.settings.waha_base_url
+                or os.getenv("WAHA_BASE_URL")
+                or "http://waha:3000"
+            )
+            session = (
+                self.settings.waha_session
+                or os.getenv("WAHA_SESSION")
+                or "default"
+            )
+            api_key = (
+                self.settings.waha_api_key
+                or os.getenv("WAHA_API_KEY")
+                or ""
+            )
             return WahaWhatsAppProvider(
-                base_url=self.settings.waha_base_url,
-                session=self.settings.waha_session,
-                api_key=self.settings.waha_api_key,
+                base_url=base_url,
+                session=session,
+                api_key=api_key,
             )
         elif name == "meta":
             return MetaWhatsAppProvider(

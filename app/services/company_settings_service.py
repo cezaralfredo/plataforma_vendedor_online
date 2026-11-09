@@ -14,6 +14,8 @@ class CompanySettingsService:
 
     def get_or_create_default(self) -> CompanySettings:
         """Retorna a configuração da empresa (singleton/primeiro registro) ou cria com padrões."""
+        import os
+
         settings = self.db.query(CompanySettings).first()
         if not settings:
             settings = CompanySettings(
@@ -26,6 +28,8 @@ class CompanySettingsService:
                 default_commission_rate=0.0,
                 split_enabled=False,
                 whatsapp_provider="evolution",
+                waha_base_url=os.getenv("WAHA_BASE_URL", "http://waha:3000"),
+                waha_session=os.getenv("WAHA_SESSION", "default"),
                 assistant_name="Assistente",
                 tone="casual",
                 require_cpf=False,
@@ -37,6 +41,7 @@ class CompanySettingsService:
             self.db.add(settings)
             self.db.commit()
             self.db.refresh(settings)
+
         return settings
 
     def update(self, update_data: CompanySettingsUpdate) -> CompanySettings:
