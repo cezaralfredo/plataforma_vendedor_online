@@ -28,7 +28,7 @@ services:
     container_name: ria360-api
     restart: unless-stopped
     ports:
-      - "${APP_PORT:-8000}:8000"
+      - "${APP_PORT:-8085}:8000"
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ria_user}:__POSTGRES_PASSWORD__@postgres:5432/${POSTGRES_DB:-ria360_db}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}
@@ -55,7 +55,11 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - ria360_net
+      ria360_net:
+      npm:
+        aliases:
+          - ria360
+          - ria360-api
 
 volumes:
   ria360_pgdata:
@@ -65,3 +69,6 @@ networks:
   ria360_net:
     name: ria360_net
     driver: bridge
+  npm:
+    external: true
+    name: nginx-proxy_default
