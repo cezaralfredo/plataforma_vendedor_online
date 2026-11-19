@@ -65,6 +65,7 @@ def create_app(
         openapi_url=openapi_url,
     )
     application.state.settings = app_settings
+    application.state.session_factory = session_factory
     application.mount(
         "/admin/static",
         StaticFiles(directory="app/admin/static"),
@@ -87,6 +88,16 @@ def create_app(
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "img-src 'self' data: https:; "
+            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "font-src 'self' data:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
         if not app_settings.debug:
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response

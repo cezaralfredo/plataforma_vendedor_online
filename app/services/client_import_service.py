@@ -223,6 +223,11 @@ class ClientImportService:
                 existing_user.city = item.city or existing_user.city
                 existing_user.state = item.state or existing_user.state
                 existing_user.address = item.address or existing_user.address
+                existing_user.address_number = item.address_number or existing_user.address_number
+                existing_user.address_complement = item.address_complement or existing_user.address_complement
+                existing_user.neighborhood = item.neighborhood or existing_user.neighborhood
+                existing_user.delivery_instructions = item.delivery_instructions or existing_user.delivery_instructions
+                existing_user.preferred_bank = item.preferred_bank or existing_user.preferred_bank
                 if item.opt_in_whatsapp is not None:
                     existing_user.opt_in_whatsapp = item.opt_in_whatsapp
                 existing_user.tags = merged_tags
@@ -270,6 +275,11 @@ class ClientImportService:
                     city=item.city,
                     state=item.state,
                     address=item.address,
+                    address_number=item.address_number,
+                    address_complement=item.address_complement,
+                    neighborhood=item.neighborhood,
+                    delivery_instructions=item.delivery_instructions,
+                    preferred_bank=item.preferred_bank,
                     opt_in_whatsapp=item.opt_in_whatsapp if item.opt_in_whatsapp is not None else True,
                 )
                 self.db.add(new_user)
@@ -345,6 +355,11 @@ class ClientImportService:
             state = _extract_col_value(normalized_row, "estado", "state", "uf")
             postal_code = _extract_col_value(normalized_row, "cep", "postalcode", "zipcode")
             address = _extract_col_value(normalized_row, "endereco", "address", "logradouro", "rua")
+            address_number = _extract_col_value(normalized_row, "numero", "number", "num")
+            address_complement = _extract_col_value(normalized_row, "complemento", "complement", "comp", "apto")
+            neighborhood = _extract_col_value(normalized_row, "bairro", "neighborhood", "district")
+            delivery_instructions = _extract_col_value(normalized_row, "instrucoes", "deliveryinstructions", "pontoreferencia")
+            preferred_bank = _extract_col_value(normalized_row, "banco", "preferredbank", "bancopreferido")
             birth_date = _extract_col_value(normalized_row, "nascimento", "datanascimento", "birthdate", "aniversario")
             gender = _extract_col_value(normalized_row, "genero", "gender", "sexo")
             external_id = _extract_col_value(normalized_row, "id", "codigo", "externalid", "idexterno", "codigocliente")
@@ -361,6 +376,11 @@ class ClientImportService:
                     state=state,
                     postal_code=postal_code,
                     address=address,
+                    address_number=address_number,
+                    address_complement=address_complement,
+                    neighborhood=neighborhood,
+                    delivery_instructions=delivery_instructions,
+                    preferred_bank=preferred_bank,
                     birth_date=birth_date,
                     gender=gender,
                     external_id=external_id,

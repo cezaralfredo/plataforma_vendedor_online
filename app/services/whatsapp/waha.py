@@ -266,7 +266,11 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
 
                 if res.status_code == 404:
                     # Sessão não existe, cria e inicializa com webhook do RIA 360
+                    from app.config import settings as app_settings
+
                     webhook_url = "http://ria360-api:8000/api/webhooks/whatsapp/waha"
+                    if app_settings.whatsapp_webhook_secret:
+                        webhook_url = f"{webhook_url}?token={app_settings.whatsapp_webhook_secret}"
                     await client.post(
                         f"{self.base_url}/api/sessions/",
                         json={

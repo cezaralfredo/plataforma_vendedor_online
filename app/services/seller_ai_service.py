@@ -52,8 +52,11 @@ class SellerAIService:
                     )
                 )
             except Exception as exc:
+                self.db.rollback()
                 logger.warning("Erro ao cadastrar novo cliente via WhatsApp: %s", exc)
                 user = self.user_service.find_by_phone(phone)
+        if user is None:
+            raise RuntimeError("Não foi possível localizar ou cadastrar o cliente.")
         return user
 
     def _record_chat(self, phone: str, role: str, content: str, provider: str | None = None) -> None:

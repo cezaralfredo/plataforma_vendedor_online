@@ -68,4 +68,4 @@ def get_payment_gateway(
     elif provider_normalized in {"manual", "none", "in_person", "balcao"}:
         return ManualPaymentGateway()
     else:
-        return ManualPaymentGateway()
+        raise ValueError(f"Unsupported payment gateway: {provider}")

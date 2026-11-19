@@ -150,13 +150,14 @@ class AppointmentService:
         limit: int = 100,
     ):
         self._expire_pending()
+        query = self.repo.db.query(Appointment)
         if user_id is not None:
-            return self.repo.list_by_user(user_id)
+            query = query.filter(Appointment.user_id == user_id)
         if professional_id is not None:
-            return self.repo.list_by_professional(professional_id)
+            query = query.filter(Appointment.professional_id == professional_id)
         if status is not None:
-            return self.repo.list_by_status(status)
-        return self.repo.list(skip=skip, limit=limit)
+            query = query.filter(Appointment.status == status)
+        return query.order_by(Appointment.start_time.desc()).offset(skip).limit(limit).all()
 
     def update(self, appointment_id: int, data: AppointmentUpdate):
         values = data.model_dump(exclude_unset=True)
@@ -182,7 +183,7 @@ class AppointmentService:
             return appointment
 
         transitions = {
-            "confirm": ({"pending"}, "confirmed", "Confirmado"),
+            "confirm": ({"pending", "awaiting_payment"}, "confirmed", "Confirmado"),
             "cancel": ({"pending", "confirmed", "awaiting_payment"}, "cancelled", "Cancelado"),
             "complete": ({"confirmed"}, "completed", "Concluído"),
         }

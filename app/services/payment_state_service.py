@@ -27,16 +27,17 @@ def apply_payment_state(
         if payment.received_at is None:
             payment.received_at = now
         if (
-            appointment.status in {"pending", "awaiting_payment"}
+            appointment is not None
+            and appointment.status in {"pending", "awaiting_payment"}
             and not _is_expired(appointment.expires_at, now)
         ):
             appointment.status = "confirmed"
         return
 
     if new_status in {"overdue", "cancelled"}:
-        if appointment.status in {"pending", "awaiting_payment"}:
+        if appointment is not None and appointment.status in {"pending", "awaiting_payment"}:
             appointment.status = "cancelled"
         return
 
-    if new_status == "refunded" and appointment.status != "completed":
+    if new_status == "refunded" and appointment is not None and appointment.status != "completed":
         appointment.status = "cancelled"

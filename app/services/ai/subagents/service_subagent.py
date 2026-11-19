@@ -158,6 +158,8 @@ class ServiceSubagent(BaseSubagent):
                         "nome": s.name,
                         "categoria": s.category,
                         "descricao": s.description or "",
+                        "preco_reais": f"R$ {(s.price_cents or 0) / 100:.2f}",
+                        "duracao_minutos": s.duration_minutes,
                     }
                     for s in services
                 ]
@@ -294,7 +296,12 @@ class ServiceSubagent(BaseSubagent):
                 return json.dumps({"status": "sucesso", "agendamentos": res}, ensure_ascii=False)
 
             elif tool_name == "cancelar_agendamento":
+                if not self.user:
+                    return json.dumps({"erro": "Cliente não identificado para cancelar agendamento."}, ensure_ascii=False)
                 apt_id = int(arguments["agendamento_id"])
+                apt = self.appointment_service.get(apt_id)
+                if not apt or apt.user_id != self.user.id:
+                    return json.dumps({"erro": f"Agendamento #{apt_id} não encontrado para o seu cadastro."}, ensure_ascii=False)
                 res = self.appointment_service.cancel_appointment(apt_id)
                 if res:
                     return json.dumps({"status": "sucesso", "mensagem": f"Agendamento #{apt_id} cancelado com sucesso."}, ensure_ascii=False)

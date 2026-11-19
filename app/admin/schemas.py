@@ -88,7 +88,10 @@ class AdminPayment(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    appointment_id: int
+    appointment_id: int | None = None
+    user_id: int | None = None
+    product_id: int | None = None
+    description: str | None = None
     asaas_payment_id: str | None = None
     amount_cents: int
     billing_type: str
@@ -103,6 +106,7 @@ class AdminPayment(BaseModel):
     client_phone: str | None = None
     professional_name: str | None = None
     service_name: str | None = None
+    product_name: str | None = None
     appointment_start: datetime | None = None
 
 
@@ -162,8 +166,18 @@ class AdminClientCreate(BaseModel):
     phone: str
     email: str | None = None
     whatsapp_number: str | None = None
+    cpf_cnpj: str | None = None
+    postal_code: str | None = None
     city: str | None = None
     state: str | None = None
+    address: str | None = None
+    address_number: str | None = None
+    address_complement: str | None = None
+    neighborhood: str | None = None
+    delivery_instructions: str | None = None
+    preferred_bank: str | None = None
+    birth_date: date | None = None
+    gender: str | None = None
     tags: list[str] = Field(default_factory=list)
     notes: str | None = None
 
@@ -208,8 +222,18 @@ class AdminClientUpdate(BaseModel):
     phone: str | None = None
     email: str | None = None
     whatsapp_number: str | None = None
+    cpf_cnpj: str | None = None
+    postal_code: str | None = None
     city: str | None = None
     state: str | None = None
+    address: str | None = None
+    address_number: str | None = None
+    address_complement: str | None = None
+    neighborhood: str | None = None
+    delivery_instructions: str | None = None
+    preferred_bank: str | None = None
+    birth_date: date | None = None
+    gender: str | None = None
     tags: list[str] | str | None = None
     notes: str | None = None
 
@@ -259,11 +283,21 @@ class AdminClientSummary(BaseModel):
     phone: str
     email: str | None = None
     whatsapp_number: str | None = None
+    postal_code: str | None = None
     city: str | None = None
     state: str | None = None
+    address: str | None = None
+    address_number: str | None = None
+    address_complement: str | None = None
+    neighborhood: str | None = None
+    delivery_instructions: str | None = None
+    preferred_bank: str | None = None
+    birth_date: date | None = None
+    gender: str | None = None
     tags: list[str] = Field(default_factory=list)
     notes: str | None = None
     active: bool
+    created_at: datetime | None = None
     appointments_total: int
     payments_received_total: int
     last_appointment_at: datetime | None = None

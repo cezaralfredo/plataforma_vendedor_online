@@ -93,7 +93,7 @@ TOOL_DEFINITIONS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "professional_id": {"description": "ID do profissional (número) ou nome do profissional (opcional)"},
+                "professional_id": {"anyOf": [{"type": "integer"}, {"type": "string"}], "description": "ID do profissional (número) ou nome do profissional (opcional)"},
                 "category": {"type": "string", "description": "Categoria do serviço (opcional)"},
             },
         },
@@ -127,10 +127,10 @@ TOOL_DEFINITIONS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "professional_id": {"description": "ID do profissional (número) ou nome do profissional (opcional se professional_name informado)"},
+                "professional_id": {"anyOf": [{"type": "integer"}, {"type": "string"}], "description": "ID do profissional (número) ou nome do profissional (opcional se professional_name informado)"},
                 "professional_name": {"type": "string", "description": "Nome ou parte do nome do profissional (ex: 'Marilde Vieira')"},
                 "date": {"type": "string", "description": "Data no formato YYYY-MM-DD (ex: 2026-09-23)"},
-                "service_id": {"description": "ID ou nome do serviço (opcional). Quando informado, calcula e retorna os horários de início exatos para esse serviço."},
+                "service_id": {"anyOf": [{"type": "integer"}, {"type": "string"}], "description": "ID ou nome do serviço (opcional). Quando informado, calcula e retorna os horários de início exatos para esse serviço."},
             },
             "required": ["date"],
         },
@@ -509,7 +509,7 @@ async def handle_tool_call(name: str, arguments: dict, db: Session) -> dict:
 
             if service_id and service_obj:
                 slots = availability_service.get_time_slots_for_service(
-                    professional_id=prof_id,
+                    professional_id=int(prof.id),
                     service_id=service_id,
                     date_str=arguments["date"],
                 )
@@ -533,7 +533,7 @@ async def handle_tool_call(name: str, arguments: dict, db: Session) -> dict:
                 return {"content": [{"type": "text", "text": text}]}
 
             slots = availability_service.check_availability(
-                professional_id=prof_id,
+                professional_id=int(prof.id),
                 date_str=arguments["date"],
             )
             if not slots:
@@ -633,10 +633,10 @@ async def handle_tool_call(name: str, arguments: dict, db: Session) -> dict:
                 cliente_nome = a.user.name if a.user else "Desconhecido"
                 cliente_tel = getattr(a.user, "whatsapp_number", None) or getattr(a.user, "phone", "Sem telefone")
                 servico = a.service.name if a.service else "Serviço"
-                prof = a.professional.name if a.professional else "Profissional"
+                prof_label = a.professional.name if a.professional else "Profissional"
                 lines.append(
                     f"• Agendamento #{a.id}: Cliente {cliente_nome} ({cliente_tel}) | "
-                    f"Serviço: {servico} ({prof}) | Data/Hora: {a.start_time}"
+                    f"Serviço: {servico} ({prof_label}) | Data/Hora: {a.start_time}"
                 )
             return {
                 "content": [
@@ -689,6 +689,7 @@ async def handle_tool_call(name: str, arguments: dict, db: Session) -> dict:
                 )
                 .filter(Appointment.user_id == user_id)
                 .order_by(Appointment.start_time.desc())
+                .limit(20)
                 .all()
             )
 
@@ -733,8 +734,8 @@ async def handle_tool_call(name: str, arguments: dict, db: Session) -> dict:
         elif name == "verificar_status_pagamento":
             appointment_id = arguments["appointment_id"]
             payment_service = PaymentService(db)
-            payment = payment_service.get_payment_by_appointment(appointment_id)
-            if not payment:
+            found_payment = payment_service.get_payment_by_appointment(appointment_id)
+            if not found_payment:
                 return {
                     "content": [
                         {
@@ -743,6 +744,7 @@ async def handle_tool_call(name: str, arguments: dict, db: Session) -> dict:
                         }
                     ]
                 }
+            payment = found_payment
 
             if payment.status in {"pending", "awaiting_payment"} and payment.asaas_payment_id:
                 try:

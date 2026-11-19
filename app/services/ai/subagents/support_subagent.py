@@ -64,38 +64,18 @@ class SupportSubagent(BaseSubagent):
             except Exception as e:
                 logger.warning("Falha ao registrar pausa da IA no usuário: %s", e)
 
-        # 2. Localiza o vendedor responsável pelo cliente
-        seller = None
-        if self.user and self.db:
-            custom_fields = self.user.custom_fields or {}
-            seller_id = custom_fields.get("seller_id")
-            if seller_id:
-                from app.models.seller import Seller
-                seller = self.db.query(Seller).filter(Seller.id == seller_id).first()
-
-        # 3. Notificação ativa no WhatsApp do Vendedor Humano
+        # 2. Notificação ativa no WhatsApp do Suporte Humano
         seller_notified = False
         client_phone = getattr(self.user, "whatsapp_number", None) or getattr(self.user, "phone", "")
         clean_client_phone = "".join(c for c in str(client_phone or "") if c.isdigit())
         if len(clean_client_phone) in (10, 11) and not clean_client_phone.startswith("55"):
             clean_client_phone = "55" + clean_client_phone
 
-        seller_phone = seller.whatsapp_number if seller else None
-        seller_name = seller.name if seller else None
+        seller_phone = None
+        seller_name = None
 
-        # Fallback para número da filial caso não haja vendedor com telefone
-        if not seller_phone and self.user and self.db:
-            custom_fields = self.user.custom_fields or {}
-            branch_id = custom_fields.get("branch_id")
-            if branch_id:
-                from app.models.branch import Branch
-                branch = self.db.query(Branch).filter(Branch.id == branch_id).first()
-                if branch and branch.whatsapp_number:
-                    seller_phone = branch.whatsapp_number
-                    seller_name = f"Equipe {branch.name}"
-
-        # Fallback para contato de suporte humano configurado nas configurações da empresa
-        if not seller_phone and self.company_settings:
+        # Contato de suporte humano configurado nas configurações da empresa
+        if self.company_settings:
             cfg_phone = getattr(self.company_settings, "human_support_phone", None)
             if cfg_phone:
                 seller_phone = cfg_phone
@@ -122,19 +102,19 @@ class SupportSubagent(BaseSubagent):
             try:
                 res = await self.gateway.send_text(seller_phone, alert_text)
                 seller_notified = getattr(res, "success", False)
-                logger.info("Notificação de transbordo enviada ao vendedor %s: %s", seller_name, seller_notified)
+                logger.info("Notificação de transbordo enviada ao atendente %s: %s", seller_name, seller_notified)
             except Exception as e:
-                logger.warning("Falha ao notificar vendedor via WhatsApp: %s", e)
+                logger.warning("Falha ao notificar atendente via WhatsApp: %s", e)
 
         raw_support_phone = (
             seller_phone
             or (getattr(self.company_settings, "human_support_phone", None) if self.company_settings else None)
-            or "5585996277707"
+            or ""
         )
         clean_support_phone = "".join(filter(str.isdigit, raw_support_phone))
         if len(clean_support_phone) in (10, 11) and not clean_support_phone.startswith("55"):
             clean_support_phone = "55" + clean_support_phone
-        support_link = f"https://wa.me/{clean_support_phone}"
+        support_link = f"https://wa.me/{clean_support_phone}" if clean_support_phone else None
 
         custom_support_msg = (
             getattr(self.company_settings, "human_support_message", None)

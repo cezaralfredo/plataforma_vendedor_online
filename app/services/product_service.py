@@ -77,7 +77,12 @@ class ProductService:
         return product
 
     def adjust_stock(self, product_id: int, quantity_delta: int) -> Product:
-        product = self.get_by_id(product_id)
+        product = (
+            self.db.query(Product)
+            .filter(Product.id == product_id)
+            .with_for_update()
+            .first()
+        )
         if not product:
             raise ValueError(f"Produto #{product_id} não encontrado")
         new_stock = product.stock_quantity + quantity_delta

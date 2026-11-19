@@ -194,7 +194,7 @@ class AvailabilityService:
 
     def get_available_slots(
         self, professional_id: int, date_str: str, service_id: int | None = None
-    ) -> list[str]:
+    ) -> builtins.list[str]:
         """Retorna lista de horários formatados (HH:MM) para IA e canais conversacionais."""
         if service_id:
             slots = self.get_time_slots_for_service(professional_id, service_id, date_str)

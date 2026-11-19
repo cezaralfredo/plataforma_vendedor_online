@@ -13,13 +13,18 @@ class ManualPaymentGateway(BasePaymentGateway):
 
     async def create_charge(
         self,
-        request: ChargeRequest | None = None,
-        appointment_id: int | None = None,
+        request_or_appointment_id: ChargeRequest | int | None = None,
         amount_cents: int | None = None,
         customer_info: dict[str, Any] | None = None,
         billing_type: str = "in_person",
         **kwargs: Any,
     ) -> ChargeResult:
+        request = request_or_appointment_id if isinstance(request_or_appointment_id, ChargeRequest) else kwargs.get("request")
+        appointment_id = (
+            request_or_appointment_id
+            if isinstance(request_or_appointment_id, int)
+            else kwargs.get("appointment_id")
+        )
         if isinstance(request, ChargeRequest):
             ref = f"manual:{request.order_ref or f'order:{request.user_id}'}"
         elif appointment_id is not None:

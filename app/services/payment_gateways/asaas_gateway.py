@@ -47,15 +47,15 @@ class AsaasPaymentGateway(BasePaymentGateway):
             b_type = billing_type.upper()
 
         res = await self.client.create_payment(
-            customer_id=customer_id,
+            customer_id=str(customer_id or ""),
             billing_type=b_type,
             value=val,
-            due_date=due_date,
+            due_date=str(due_date or ""),
             description=desc,
             external_reference=ext_ref,
         )
 
-        payment_id = res.get("id")
+        payment_id = str(res.get("id") or "")
         pix_qr = None
         if b_type == "PIX" and payment_id:
             try:

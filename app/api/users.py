@@ -47,9 +47,14 @@ async def import_users_csv(
     import_batch_id: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
+    max_csv_bytes = 5 * 1024 * 1024  # 5 MB
     try:
-        content_bytes = await file.read()
+        content_bytes = await file.read(max_csv_bytes + 1)
+        if len(content_bytes) > max_csv_bytes:
+            raise HTTPException(status_code=413, detail="Arquivo CSV excede o limite máximo de 5 MB.")
         csv_text = content_bytes.decode("utf-8-sig", errors="replace")
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Erro ao ler arquivo CSV: {exc}") from exc
 

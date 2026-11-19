@@ -30,6 +30,20 @@ class Settings(BaseSettings):
     triage_model: str = "typesafe/jev-1.13"
     triage_timeout_seconds: float = 10.0
 
+    # Provedores LLM (fallback via variáveis de ambiente)
+    openai_api_key: str = ""
+    anthropic_api_key: str = ""
+    gemini_api_key: str = ""
+    groq_api_key: str = ""
+
+    # WhatsApp / Webhooks
+    app_base_url: str = ""
+    waha_base_url: str = ""
+    waha_session: str = "default"
+    waha_api_key: str = ""
+    whatsapp_webhook_secret: str = ""
+    meta_app_secret: str = ""
+
     @model_validator(mode="after")
     def validate_production_secrets(self):
         if self.debug:

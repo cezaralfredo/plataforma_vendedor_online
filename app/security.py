@@ -19,7 +19,8 @@ logger = logging.getLogger("uvicorn.error")
 
 def require_api_key(request: Request) -> None:
     supplied = request.headers.get("Authorization", "")
-    expected = f"Bearer {settings.api_key}"
+    app_settings = getattr(request.app.state, "settings", settings)
+    expected = f"Bearer {app_settings.api_key}"
     if not hmac.compare_digest(supplied, expected):
         reason = "missing" if not supplied else "invalid"
         # This digest supports correlation of repeated invalid credentials

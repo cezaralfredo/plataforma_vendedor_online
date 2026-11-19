@@ -87,5 +87,9 @@ def confirm_appointment(appointment_id: int, db: Session = Depends(get_db)):
 @router.delete("/{appointment_id}", status_code=204)
 def delete_appointment(appointment_id: int, db: Session = Depends(get_db)):
     service = AppointmentService(db)
-    if not service.delete(appointment_id):
+    try:
+        deleted = service.delete(appointment_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    if not deleted:
         raise HTTPException(status_code=404, detail="Agendamento não encontrado")

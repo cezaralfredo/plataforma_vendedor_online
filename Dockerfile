@@ -74,7 +74,7 @@ COPY --chown=appuser:appgroup entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Criar diretórios necessários
-RUN mkdir -p /app/alembic/versions && chown -R appuser:appgroup /app
+RUN mkdir -p /app/alembic/versions && chown appuser:appgroup /app /app/alembic /app/alembic/versions
 
 USER appuser
 

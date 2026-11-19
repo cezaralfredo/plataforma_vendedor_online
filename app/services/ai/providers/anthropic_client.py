@@ -35,22 +35,34 @@ class AnthropicClient(BaseLLMClient):
         system_prompts: list[str] = []
         anthropic_messages: list[dict[str, Any]] = []
 
+        def _append_blocks(role: str, new_blocks: list[dict[str, Any]]) -> None:
+            if not new_blocks:
+                return
+            if anthropic_messages and anthropic_messages[-1]["role"] == role:
+                existing = anthropic_messages[-1]["content"]
+                if isinstance(existing, str):
+                    anthropic_messages[-1]["content"] = [{"type": "text", "text": existing}, *new_blocks]
+                else:
+                    existing.extend(new_blocks)
+            else:
+                anthropic_messages.append({"role": role, "content": new_blocks})
+
         for msg in messages:
             if msg.role == "system":
                 if msg.content:
                     system_prompts.append(msg.content)
             elif msg.role == "tool":
                 # Resposta de tool para o Claude deve ser role 'user' com type 'tool_result'
-                anthropic_messages.append({
-                    "role": "user",
-                    "content": [
+                _append_blocks(
+                    "user",
+                    [
                         {
                             "type": "tool_result",
                             "tool_use_id": msg.tool_call_id or "",
                             "content": msg.content or "",
                         }
                     ],
-                })
+                )
             elif msg.role == "assistant":
                 blocks: list[dict[str, Any]] = []
                 if msg.content:
@@ -63,15 +75,13 @@ class AnthropicClient(BaseLLMClient):
                             "name": tc.name,
                             "input": tc.arguments,
                         })
-                anthropic_messages.append({
-                    "role": "assistant",
-                    "content": blocks if blocks else [{"type": "text", "text": ""}],
-                })
+                _append_blocks("assistant", blocks if blocks else [{"type": "text", "text": ""}])
             else:
-                anthropic_messages.append({
-                    "role": "user",
-                    "content": msg.content or "",
-                })
+                _append_blocks("user", [{"type": "text", "text": msg.content or ""}])
+
+        # Anthropic exige que a conversa comece com role 'user'
+        while anthropic_messages and anthropic_messages[0]["role"] != "user":
+            anthropic_messages.pop(0)
 
         return "\n\n".join(system_prompts), anthropic_messages
 

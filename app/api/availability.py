@@ -21,7 +21,10 @@ router = APIRouter(
 @router.post("", response_model=AvailabilityRead, status_code=201)
 def create_availability(data: AvailabilityCreate, db: Session = Depends(get_db)):
     service = AvailabilityService(db)
-    return service.create(data)
+    try:
+        return service.create(data)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.get("", response_model=list[AvailabilityRead])

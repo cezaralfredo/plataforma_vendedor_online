@@ -212,6 +212,10 @@ class NotificationService:
             full_payload = self.get_delivery_payload(delivery)
             recipient_phone = (full_payload.get("chatId") or full_payload.get("whatsapp")) if full_payload else None
             if full_payload and recipient_phone:
+                claimed = self.claim_delivery(delivery.id)
+                if claimed is None:
+                    return False
+
                 from app.services.whatsapp.gateway import WhatsAppGatewayService
 
                 gateway = WhatsAppGatewayService(self.db)
@@ -220,7 +224,6 @@ class NotificationService:
                     text=full_payload.get("formatted_message", ""),
                 )
                 if result.success:
-                    self.claim_delivery(delivery.id)
                     self.mark_delivery_sent(
                         delivery_id=delivery.id,
                         provider_message_id=result.message_id,

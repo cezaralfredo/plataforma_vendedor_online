@@ -69,6 +69,7 @@ services:
     container_name: agenda_atende_api
     environment:
       - DATABASE_URL=postgresql+psycopg://agenda_user:__POSTGRES_PASSWORD__@postgres:5432/agenda_atende
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
       - API_KEY_FILE=/run/secrets/api_key
       - ADMIN_API_KEY_FILE=/run/secrets/admin_api_key
       - ADMIN_USERNAME_FILE=/run/secrets/admin_username
@@ -120,12 +121,9 @@ services:
       - "traefik.http.routers.mcp.entrypoints=websecure"
       - "traefik.http.routers.mcp.tls.certresolver=letsencrypt"
       - "traefik.http.services.mcp.loadbalancer.server.port=8000"
-      # Rate limiting global
+      # Rate limiting global e Compressão
       - "traefik.http.middlewares.api-ratelimit.ratelimit.average=100"
       - "traefik.http.middlewares.api-ratelimit.ratelimit.burst=50"
-      - "traefik.http.routers.api.middlewares=api-ratelimit"
-      - "traefik.http.routers.admin.middlewares=api-ratelimit"
-      # Compressão
       - "traefik.http.middlewares.compress.compress=true"
       - "traefik.http.routers.api.middlewares=api-ratelimit,compress"
       - "traefik.http.routers.admin.middlewares=api-ratelimit,compress"

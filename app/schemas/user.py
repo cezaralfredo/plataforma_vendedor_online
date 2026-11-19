@@ -22,6 +22,11 @@ class UserCreate(BaseModel):
     city: str | None = None
     state: str | None = None
     address: str | None = None
+    address_number: str | None = None
+    address_complement: str | None = None
+    neighborhood: str | None = None
+    delivery_instructions: str | None = None
+    preferred_bank: str | None = None
     opt_in_whatsapp: bool = True
 
 
@@ -45,6 +50,11 @@ class UserUpdate(BaseModel):
     city: str | None = None
     state: str | None = None
     address: str | None = None
+    address_number: str | None = None
+    address_complement: str | None = None
+    neighborhood: str | None = None
+    delivery_instructions: str | None = None
+    preferred_bank: str | None = None
     opt_in_whatsapp: bool | None = None
 
 
@@ -72,6 +82,11 @@ class UserRead(BaseModel):
     city: str | None = None
     state: str | None = None
     address: str | None = None
+    address_number: str | None = None
+    address_complement: str | None = None
+    neighborhood: str | None = None
+    delivery_instructions: str | None = None
+    preferred_bank: str | None = None
     opt_in_whatsapp: bool = True
 
 
@@ -92,6 +107,11 @@ class UserImportItem(BaseModel):
     city: str | None = None
     state: str | None = None
     address: str | None = None
+    address_number: str | None = None
+    address_complement: str | None = None
+    neighborhood: str | None = None
+    delivery_instructions: str | None = None
+    preferred_bank: str | None = None
     opt_in_whatsapp: bool | None = True
 
 

@@ -770,6 +770,10 @@
                     <label class="block font-medium text-slate-700 text-xs mb-1">Token de Acesso Permanente (System User Token)</label>
                     <input type="password" x-model="form.meta_access_token" placeholder="EAAB..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 font-mono" />
                 </div>
+                <div class="sm:col-span-2">
+                    <label class="block font-medium text-slate-700 text-xs mb-1">Token de Verificação do Webhook (Verify Token)</label>
+                    <input type="text" x-model="form.meta_verify_token" placeholder="Defina um token secreto e informe o mesmo na Meta" class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 font-mono" />
+                </div>
                 <!-- Webhook URL informativa Meta -->
                 <div class="sm:col-span-2 rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
                     <div class="flex items-center justify-between">

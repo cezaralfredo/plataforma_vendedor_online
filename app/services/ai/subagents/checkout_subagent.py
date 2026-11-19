@@ -90,9 +90,11 @@ class CheckoutSubagent(BaseSubagent):
     async def execute_tool(self, tool_name: str, arguments: dict[str, Any]) -> str:
         try:
             if tool_name == "gerar_cobranca_pix_agendamento":
+                if not self.user:
+                    return json.dumps({"erro": "Cliente não identificado para gerar cobrança."}, ensure_ascii=False)
                 apt_id = int(arguments["agendamento_id"])
                 apt = self.db.get(Appointment, apt_id)
-                if not apt:
+                if not apt or apt.user_id != self.user.id:
                     return json.dumps({"erro": f"Agendamento #{apt_id} não encontrado."}, ensure_ascii=False)
 
                 payment = await self.payment_service.create_charge(
@@ -128,9 +130,18 @@ class CheckoutSubagent(BaseSubagent):
 
                 prod_id = int(arguments["produto_id"])
                 qtd = int(arguments.get("quantidade") or 1)
+                if qtd < 1:
+                    return json.dumps({"erro": "A quantidade solicitada deve ser no mínimo 1."}, ensure_ascii=False)
                 product = self.db.get(Product, prod_id)
                 if not product or not product.active:
                     return json.dumps({"erro": f"Produto #{prod_id} não encontrado ou indisponível."}, ensure_ascii=False)
+                if product.stock_quantity < qtd:
+                    return json.dumps(
+                        {
+                            "erro": f"Estoque insuficiente para '{product.name}'. Disponível: {product.stock_quantity}.",
+                        },
+                        ensure_ascii=False,
+                    )
 
                 total_cents = product.price_cents * qtd
 
@@ -140,6 +151,7 @@ class CheckoutSubagent(BaseSubagent):
                     product_id=product.id,
                     description=f"Compra: {qtd}x {product.name}",
                     billing_type="pix",
+                    quantity=qtd,
                 )
 
                 pix_code = None
@@ -166,20 +178,22 @@ class CheckoutSubagent(BaseSubagent):
                 }, ensure_ascii=False)
 
             elif tool_name == "verificar_status_pagamento":
-                apt_id = arguments.get("agendamento_id")
+                if not self.user:
+                    return json.dumps({"erro": "Cliente não identificado para consultar pagamento."}, ensure_ascii=False)
+                raw_apt_id = arguments.get("agendamento_id")
                 pay_id = arguments.get("pagamento_id")
 
                 payment = None
                 if pay_id:
                     payment = self.db.get(Payment, int(pay_id))
-                elif apt_id:
+                elif raw_apt_id:
                     payment = (
                         self.db.query(Payment)
-                        .filter(Payment.appointment_id == int(apt_id))
+                        .filter(Payment.appointment_id == int(raw_apt_id))
                         .order_by(Payment.id.desc())
                         .first()
                     )
-                elif self.user:
+                else:
                     payment = (
                         self.db.query(Payment)
                         .filter(Payment.user_id == self.user.id)
@@ -187,7 +201,10 @@ class CheckoutSubagent(BaseSubagent):
                         .first()
                     )
 
-                if not payment:
+                owner_id = payment.user_id if payment else None
+                if payment and owner_id is None and payment.appointment is not None:
+                    owner_id = payment.appointment.user_id
+                if not payment or owner_id != self.user.id:
                     return json.dumps({"erro": "Nenhum pagamento localizado para verificação."}, ensure_ascii=False)
 
                 if payment.status == "pending" and payment.asaas_payment_id:

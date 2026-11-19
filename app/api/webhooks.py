@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -9,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.models.notification_log import NotificationLog
 from app.models.payment import Payment
 from app.models.webhook_event import WebhookEvent
@@ -31,10 +32,31 @@ STATUS_MAP = {
 
 def verify_webhook_signature(request: Request) -> bool:
     token = request.headers.get("asaas-access-token", "")
-    expected = settings.asaas_webhook_token
+    app_settings = getattr(request.app.state, "settings", settings)
+    expected = app_settings.asaas_webhook_token
     if not expected:
+        if not app_settings.debug:
+            logger.error("Asaas webhook rejected: ASAAS_WEBHOOK_TOKEN is not configured in production mode")
+            return False
         return True
     return hmac.compare_digest(token, expected)
+
+
+async def _send_whatsapp_in_own_session(
+    session_factory: Callable[[], Session],
+    client_phone: str,
+    message: str,
+) -> None:
+    from app.services.whatsapp.gateway import WhatsAppGatewayService
+
+    db = session_factory()
+    try:
+        gateway = WhatsAppGatewayService(db)
+        await gateway.send_text(client_phone, message)
+    except Exception:
+        logger.exception("Erro ao enviar confirmação WhatsApp em background para %s", client_phone)
+    finally:
+        db.close()
 
 
 @router.post("/asaas")
@@ -71,6 +93,7 @@ async def asaas_webhook(
     payment = (
         db.query(Payment)
         .filter(Payment.asaas_payment_id == asaas_payment_id)
+        .with_for_update()
         .first()
     )
     if not payment:
@@ -93,7 +116,7 @@ async def asaas_webhook(
     if new_status:
         apply_payment_state(payment, new_status, datetime.now(UTC))
         if new_status in {"received", "confirmed"}:
-            if payment.appointment and payment.appointment.status == "confirmed":
+            if payment.appointment and payment.appointment.status == "confirmed" and payment.appointment_id is not None:
                 should_notify = True
                 appointment_id = payment.appointment_id
                 logger.info(
@@ -121,11 +144,15 @@ async def asaas_webhook(
                 client_phone = getattr(user, "whatsapp_number", None) or getattr(user, "phone", None)
                 if client_phone:
                     from app.services.notification_service import format_payment_confirmation_message
-                    from app.services.whatsapp.gateway import WhatsAppGatewayService
 
-                    gateway = WhatsAppGatewayService(db)
                     confirm_msg = format_payment_confirmation_message(None, payment)
-                    background_tasks.add_task(gateway.send_text, client_phone, confirm_msg)
+                    session_factory = getattr(request.app.state, "session_factory", SessionLocal)
+                    background_tasks.add_task(
+                        _send_whatsapp_in_own_session,
+                        session_factory,
+                        client_phone,
+                        confirm_msg,
+                    )
     db.commit()
 
     if should_notify and appointment_id and delivery_id:

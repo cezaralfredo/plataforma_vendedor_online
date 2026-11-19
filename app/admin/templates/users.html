@@ -242,6 +242,40 @@
             </label>
           </div>
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+            CPF / CNPJ
+            <input x-model.trim="form.cpf_cnpj" inputmode="numeric" placeholder="000.000.000-00" class="mt-1.5 w-full rounded-xl border border-slate-300/80 px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-xs">
+          </label>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+            CEP
+            <input x-model.trim="form.postal_code" inputmode="numeric" placeholder="00000-000" class="mt-1.5 w-full rounded-xl border border-slate-300/80 px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-xs">
+          </label>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <label class="block sm:col-span-2 text-xs font-semibold uppercase tracking-wider text-slate-600">
+            Endereço
+            <input x-model.trim="form.address" placeholder="Rua / Avenida" class="mt-1.5 w-full rounded-xl border border-slate-300/80 px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-xs">
+          </label>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+            Número
+            <input x-model.trim="form.address_number" placeholder="123" class="mt-1.5 w-full rounded-xl border border-slate-300/80 px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-xs">
+          </label>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+            Complemento
+            <input x-model.trim="form.address_complement" placeholder="Apto, bloco..." class="mt-1.5 w-full rounded-xl border border-slate-300/80 px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-xs">
+          </label>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+            Bairro
+            <input x-model.trim="form.neighborhood" placeholder="Bairro" class="mt-1.5 w-full rounded-xl border border-slate-300/80 px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-xs">
+          </label>
+        </div>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+          Instruções de entrega
+          <input x-model.trim="form.delivery_instructions" placeholder="Ponto de referência, horário..." class="mt-1.5 w-full rounded-xl border border-slate-300/80 px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-xs">
+        </label>
         <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600">
           Tags
           <input x-model.trim="form.tags" placeholder="vip, recorrente, indicação" class="mt-1.5 w-full rounded-xl border border-slate-300/80 px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-xs">
@@ -417,14 +451,14 @@
 <script>
 function clientsPage(){return{
   clients:[],total:0,page:1,pageSize:20,totalPages:0,search:'',status:'active',loading:false,loadError:'',formOpen:false,editingId:null,saving:false,
-  form:{name:'',phone:'',email:'',whatsapp_number:'',city:'',state:'',tags:'',notes:''},
+  form:{name:'',phone:'',email:'',whatsapp_number:'',city:'',state:'',tags:'',notes:'',cpf_cnpj:'',postal_code:'',address:'',address_number:'',address_complement:'',neighborhood:'',delivery_instructions:''},
   importModalOpen:false,importing:false,importFile:null,importSource:'import_csv',importStrategy:'update',importSummary:null,
   maskPhone(value){const digits=String(value||'').replace(/\D/g,'');return digits.length<6?'Não informado':`${digits.slice(0,4)}••••${digits.slice(-3)}`},
   maskEmail(value){if(!value||!value.includes('@'))return '';const [name,domain]=value.split('@');return `${name.slice(0,2)}•••@${domain}`},
   formatDate(value){return value?new Intl.DateTimeFormat('pt-BR').format(new Date(value)):'Nenhum'},
   async request(url,options={}){const response=await adminFetch(url,{headers:{'Content-Type':'application/json'},...options});if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.detail||'Não foi possível concluir a operação.')}return response.status===204?null:response.json()},
   async reload(){this.loading=true;this.loadError='';try{const query=new URLSearchParams({page:this.page,page_size:this.pageSize,status:this.status});if(this.search)query.set('search',this.search);const result=await this.request(`/admin/api/clients?${query}`);this.clients=result.data||[];this.total=result.total||0;this.totalPages=result.total_pages||0}catch(error){this.clients=[];this.loadError=error.message}finally{this.loading=false}},
-  openCreate(){this.editingId=null;this.form={name:'',phone:'',email:'',whatsapp_number:'',city:'',state:'',tags:'',notes:''};this.formOpen=true},
+  openCreate(){this.editingId=null;this.form={name:'',phone:'',email:'',whatsapp_number:'',city:'',state:'',tags:'',notes:'',cpf_cnpj:'',postal_code:'',address:'',address_number:'',address_complement:'',neighborhood:'',delivery_instructions:''};this.formOpen=true},
   openEdit(client){
     this.editingId=client.id;
     this.form={
@@ -435,7 +469,14 @@ function clientsPage(){return{
       city:client.city||'',
       state:client.state||'',
       tags:Array.isArray(client.tags)?client.tags.join(', '):(client.tags||''),
-      notes:client.notes||''
+      notes:client.notes||'',
+      cpf_cnpj:client.cpf_cnpj||'',
+      postal_code:client.postal_code||'',
+      address:client.address||'',
+      address_number:client.address_number||'',
+      address_complement:client.address_complement||'',
+      neighborhood:client.neighborhood||'',
+      delivery_instructions:client.delivery_instructions||''
     };
     this.formOpen=true;
   },
@@ -450,7 +491,14 @@ function clientsPage(){return{
         city:this.form.city||null,
         state:this.form.state||null,
         tags:this.form.tags||[],
-        notes:this.form.notes||null
+        notes:this.form.notes||null,
+        cpf_cnpj:this.form.cpf_cnpj||null,
+        postal_code:this.form.postal_code||null,
+        address:this.form.address||null,
+        address_number:this.form.address_number||null,
+        address_complement:this.form.address_complement||null,
+        neighborhood:this.form.neighborhood||null,
+        delivery_instructions:this.form.delivery_instructions||null
       };
       await this.request(this.editingId?`/admin/api/clients/${this.editingId}`:'/admin/api/clients',{method:this.editingId?'PUT':'POST',body:JSON.stringify(payload)});
       this.formOpen=false;

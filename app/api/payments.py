@@ -17,6 +17,8 @@ router = APIRouter(
 
 @router.post("", response_model=PaymentRead, status_code=201)
 async def create_payment(data: PaymentCreate, db: Session = Depends(get_db)):
+    if data.appointment_id is None:
+        raise HTTPException(status_code=400, detail="appointment_id é obrigatório")
     svc = PaymentService(db)
     try:
         payment = await svc.create_charge(data.appointment_id, data.billing_type, data.amount_cents)

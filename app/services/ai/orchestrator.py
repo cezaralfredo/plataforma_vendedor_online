@@ -93,8 +93,8 @@ class SalonAIOrchestrator:
         """
         Processa a mensagem do cliente executando o ciclo ReAct com o modelo de LLM.
         """
-        # Se o provedor de LLM não estiver disponível ou sem API key
-        if not self.llm_client or not getattr(self.company_settings, "ai_api_key", None):
+        # Se o provedor de LLM não estiver disponível
+        if not self.llm_client:
             return self._build_deterministic_fallback(user_text)
 
         system_prompt = self._build_system_prompt()

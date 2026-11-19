@@ -30,10 +30,10 @@ class NotificationDelivery(Base):
     next_attempt_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
-    claimed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
-    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
-    provider_message_id: Mapped[str] = mapped_column(String(160), nullable=True)
-    last_error: Mapped[str] = mapped_column(Text, nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    provider_message_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -140,9 +140,18 @@ class MetaWhatsAppProvider(BaseWhatsAppProvider):
 
     def parse_inbound_webhook(self, payload: dict[str, Any]) -> InboundMessage | None:
         """Processa webhook da Meta Cloud API Oficial."""
-        entry = payload.get("entry", [{}])[0]
-        changes = entry.get("changes", [{}])[0]
-        value = changes.get("value", {})
+        entries = payload.get("entry") or []
+        if not isinstance(entries, list) or not entries:
+            return None
+        entry = entries[0] if isinstance(entries[0], dict) else {}
+
+        changes_list = entry.get("changes") or []
+        if not isinstance(changes_list, list) or not changes_list:
+            return None
+        changes = changes_list[0] if isinstance(changes_list[0], dict) else {}
+        value = changes.get("value") or {}
+        if not isinstance(value, dict):
+            return None
 
         messages = value.get("messages")
         if not messages or not isinstance(messages, list):

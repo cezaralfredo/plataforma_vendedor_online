@@ -14,6 +14,7 @@ from app.models.availability import Availability
 from app.models.notification_delivery import NotificationDelivery
 from app.models.notification_log import NotificationLog
 from app.models.payment import Payment
+from app.models.product import Product
 from app.models.professional import Professional
 from app.models.professional_service import ProfessionalService
 from app.models.service import Service
@@ -118,9 +119,13 @@ class AdminService:
         user = self.db.get(User, user_id)
         if user is None:
             return None
-        has_history = self.db.query(Appointment.id).filter(
+        has_appointments = self.db.query(Appointment.id).filter(
             Appointment.user_id == user_id
         ).first() is not None
+        has_payments = self.db.query(Payment.id).filter(
+            Payment.user_id == user_id
+        ).first() is not None
+        has_history = has_appointments or has_payments
         if has_history:
             user.active = False
             self.db.commit()
@@ -157,10 +162,13 @@ class AdminService:
         last_appointment_at = select(func.max(Appointment.start_time)).where(
             Appointment.user_id == User.id
         ).correlate(User).scalar_subquery()
-        payments_received_total = select(func.count(Payment.id)).join(
-            Appointment, Payment.appointment_id == Appointment.id
-        ).where(
-            Appointment.user_id == User.id,
+        payments_received_total = select(func.count(Payment.id)).where(
+            or_(
+                Payment.user_id == User.id,
+                Payment.appointment_id.in_(
+                    select(Appointment.id).where(Appointment.user_id == User.id)
+                ),
+            ),
             Payment.status.in_(["received", "confirmed"]),
         ).correlate(User).scalar_subquery()
         query = self.db.query(
@@ -181,6 +189,7 @@ class AdminService:
                     User.phone.ilike(term),
                     User.email.ilike(term),
                     User.city.ilike(term),
+                    User.cpf_cnpj.ilike(term),
                 )
             )
         total = query.count()
@@ -192,11 +201,21 @@ class AdminService:
                 "phone": user.phone,
                 "email": user.email,
                 "whatsapp_number": user.whatsapp_number,
+                "postal_code": user.postal_code,
                 "city": user.city,
                 "state": user.state,
+                "address": user.address,
+                "address_number": user.address_number,
+                "address_complement": user.address_complement,
+                "neighborhood": user.neighborhood,
+                "delivery_instructions": user.delivery_instructions,
+                "preferred_bank": user.preferred_bank,
+                "birth_date": user.birth_date,
+                "gender": user.gender,
                 "tags": user.tags if isinstance(user.tags, list) else [],
                 "notes": user.notes,
                 "active": user.active,
+                "created_at": user.created_at,
                 "appointments_total": appointment_count,
                 "payments_received_total": payment_count,
                 "last_appointment_at": last_at,
@@ -211,8 +230,18 @@ class AdminService:
             phone=data.phone.strip(),
             email=data.email.strip() if data.email else None,
             whatsapp_number=data.whatsapp_number.strip() if data.whatsapp_number else (data.phone.strip() if data.phone else None),
+            cpf_cnpj=data.cpf_cnpj.strip() if getattr(data, "cpf_cnpj", None) else None,
+            postal_code=data.postal_code.strip() if getattr(data, "postal_code", None) else None,
             city=data.city.strip() if getattr(data, "city", None) else None,
             state=data.state.strip().upper()[:2] if getattr(data, "state", None) else None,
+            address=data.address.strip() if getattr(data, "address", None) else None,
+            address_number=data.address_number.strip() if getattr(data, "address_number", None) else None,
+            address_complement=data.address_complement.strip() if getattr(data, "address_complement", None) else None,
+            neighborhood=data.neighborhood.strip() if getattr(data, "neighborhood", None) else None,
+            delivery_instructions=data.delivery_instructions.strip() if getattr(data, "delivery_instructions", None) else None,
+            preferred_bank=data.preferred_bank.strip() if getattr(data, "preferred_bank", None) else None,
+            birth_date=getattr(data, "birth_date", None),
+            gender=getattr(data, "gender", None),
             tags=data.tags if isinstance(getattr(data, "tags", None), list) else [],
             notes=data.notes.strip() if getattr(data, "notes", None) else None,
         )
@@ -462,11 +491,14 @@ class AdminService:
             User.phone.label("client_phone"),
             Professional.name.label("professional_name"),
             Service.name.label("service_name"),
+            Product.name.label("product_name"),
             Appointment.start_time.label("appointment_start"),
-        ).join(Appointment, Payment.appointment_id == Appointment.id).outerjoin(
-            User, Appointment.user_id == User.id
+        ).outerjoin(Appointment, Payment.appointment_id == Appointment.id).outerjoin(
+            User, or_(Payment.user_id == User.id, Appointment.user_id == User.id)
         ).outerjoin(Professional, Appointment.professional_id == Professional.id).outerjoin(
             Service, Appointment.service_id == Service.id
+        ).outerjoin(
+            Product, Payment.product_id == Product.id
         )
 
         if date_from:
@@ -503,6 +535,8 @@ class AdminService:
                     User.cpf_cnpj.ilike(search_term),
                     Professional.name.ilike(search_term),
                     Service.name.ilike(search_term),
+                    Product.name.ilike(search_term),
+                    Payment.description.ilike(search_term),
                     Payment.asaas_payment_id.ilike(search_term),
                     Payment.billing_type.ilike(search_term),
                     cast(Payment.id, String).ilike(search_term),
@@ -545,19 +579,19 @@ class AdminService:
             ).label("cancelled_count"),
         ).first()
 
-        total = int(summary_query.total_count or 0)
+        total = int(summary_query.total_count or 0) if summary_query else 0
         summary = {
-            "total_cents": int(summary_query.total_cents or 0),
-            "received_cents": int(summary_query.received_cents or 0),
-            "received_count": int(summary_query.received_count or 0),
-            "pending_cents": int(summary_query.pending_cents or 0),
-            "pending_count": int(summary_query.pending_count or 0),
-            "overdue_cents": int(summary_query.overdue_cents or 0),
-            "overdue_count": int(summary_query.overdue_count or 0),
-            "refunded_cents": int(summary_query.refunded_cents or 0),
-            "refunded_count": int(summary_query.refunded_count or 0),
-            "cancelled_cents": int(summary_query.cancelled_cents or 0),
-            "cancelled_count": int(summary_query.cancelled_count or 0),
+            "total_cents": int(summary_query.total_cents or 0) if summary_query else 0,
+            "received_cents": int(summary_query.received_cents or 0) if summary_query else 0,
+            "received_count": int(summary_query.received_count or 0) if summary_query else 0,
+            "pending_cents": int(summary_query.pending_cents or 0) if summary_query else 0,
+            "pending_count": int(summary_query.pending_count or 0) if summary_query else 0,
+            "overdue_cents": int(summary_query.overdue_cents or 0) if summary_query else 0,
+            "overdue_count": int(summary_query.overdue_count or 0) if summary_query else 0,
+            "refunded_cents": int(summary_query.refunded_cents or 0) if summary_query else 0,
+            "refunded_count": int(summary_query.refunded_count or 0) if summary_query else 0,
+            "cancelled_cents": int(summary_query.cancelled_cents or 0) if summary_query else 0,
+            "cancelled_count": int(summary_query.cancelled_count or 0) if summary_query else 0,
         }
 
         query = query.order_by(Payment.created_at.desc())
@@ -576,20 +610,26 @@ class AdminService:
             User.phone.label("client_phone"),
             Professional.name.label("professional_name"),
             Service.name.label("service_name"),
+            Product.name.label("product_name"),
             Appointment.start_time.label("appointment_start"),
-        ).join(Appointment, Payment.appointment_id == Appointment.id).outerjoin(
-            User, Appointment.user_id == User.id
+        ).outerjoin(Appointment, Payment.appointment_id == Appointment.id).outerjoin(
+            User, or_(Payment.user_id == User.id, Appointment.user_id == User.id)
         ).outerjoin(Professional, Appointment.professional_id == Professional.id).outerjoin(
             Service, Appointment.service_id == Service.id
+        ).outerjoin(
+            Product, Payment.product_id == Product.id
         ).filter(Payment.id == payment_id).first()
         return self._serialize_payment_row(row) if row else None
 
     @staticmethod
     def _serialize_payment_row(row) -> dict:
-        pay, client_name, client_phone, prof_name, svc_name, apt_start = row
+        pay, client_name, client_phone, prof_name, svc_name, prod_name, apt_start = row
         return {
             "id": pay.id,
             "appointment_id": pay.appointment_id,
+            "user_id": pay.user_id,
+            "product_id": pay.product_id,
+            "description": pay.description,
             "asaas_payment_id": pay.asaas_payment_id,
             "amount_cents": pay.amount_cents,
             "billing_type": pay.billing_type,
@@ -602,6 +642,7 @@ class AdminService:
             "client_phone": client_phone,
             "professional_name": prof_name,
             "service_name": svc_name,
+            "product_name": prod_name,
             "appointment_start": apt_start,
         }
 
@@ -1333,6 +1374,12 @@ class AdminService:
             .order_by(Appointment.start_time.asc())
         )
 
+        def _csv_safe(val: object) -> str:
+            text = "" if val is None else str(val)
+            if text and text[0] in ("=", "+", "-", "@", "\t", "\r"):
+                return "'" + text
+            return text
+
         for row in query.all():
             apt = row.Appointment
             price_reais = ""
@@ -1345,17 +1392,17 @@ class AdminService:
                 apt.start_time.strftime("%d/%m/%Y %H:%M") if apt.start_time else "",
                 apt.end_time.strftime("%d/%m/%Y %H:%M") if apt.end_time else "",
                 apt.status,
-                row.client_name or "",
-                row.client_phone or "",
-                row.client_email or "",
-                row.professional_name or "",
-                row.service_name or "",
+                _csv_safe(row.client_name or ""),
+                _csv_safe(row.client_phone or ""),
+                _csv_safe(row.client_email or ""),
+                _csv_safe(row.professional_name or ""),
+                _csv_safe(row.service_name or ""),
                 price_reais,
                 row.payment_id or "",
                 row.payment_status or "",
-                row.asaas_id or "",
+                _csv_safe(row.asaas_id or ""),
                 row.payment_received_at.strftime("%d/%m/%Y %H:%M") if row.payment_received_at else "",
-                (apt.notes or "").replace("\n", " "),
+                _csv_safe((apt.notes or "").replace("\n", " ")),
             ])
 
         return output.getvalue()
@@ -1419,9 +1466,13 @@ class AdminService:
         vacuum_executed = False
         if run_vacuum:
             try:
-                dialect = self.db.bind.dialect.name if self.db.bind else ""
-                if dialect == "postgresql":
-                    with self.db.bind.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+                from sqlalchemy.engine import Engine
+
+                bind = self.db.get_bind()
+                dialect = bind.dialect.name if bind is not None else ""
+                if dialect == "postgresql" and bind is not None:
+                    engine = bind.engine if not isinstance(bind, Engine) else bind
+                    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
                         conn.execute(text("VACUUM ANALYZE"))
                     vacuum_executed = True
                 elif dialect == "sqlite":

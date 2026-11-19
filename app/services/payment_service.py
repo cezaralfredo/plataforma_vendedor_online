@@ -1,5 +1,7 @@
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -27,6 +29,28 @@ ASAAS_STATUS_MAP = {
     "REFUNDED": "refunded",
     "CANCELLED": "cancelled",
 }
+
+
+NON_ASAAS_PREFIXES = ("direct_pix:", "manual:", "mp:", "efi:")
+
+
+def _is_non_asaas_payment_id(gateway_payment_id: str | None) -> bool:
+    if not gateway_payment_id:
+        return False
+    return gateway_payment_id.startswith(NON_ASAAS_PREFIXES)
+
+
+def _extract_charge_fields(result: Any) -> tuple[str | None, str, str | None]:
+    if isinstance(result, dict):
+        gateway_id = result.get("gateway_payment_id") or result.get("id")
+        status = str(result.get("status") or "pending")
+        invoice_url = result.get("invoice_url") or result.get("pix_copy_paste")
+        return gateway_id, status, invoice_url
+    return (
+        getattr(result, "gateway_payment_id", None),
+        str(getattr(result, "status", "pending")),
+        getattr(result, "invoice_url", None) or getattr(result, "pix_copy_paste", None),
+    )
 
 
 class AsaasReconciliationError(AsaasIntegrationError):
@@ -115,6 +139,7 @@ class PaymentService:
         remote_status = payload.get("status")
         return Payment(
             appointment_id=appointment.id,
+            user_id=appointment.user_id,
             asaas_payment_id=payment_id,
             amount_cents=PaymentService._appointment_price_cents(appointment),
             billing_type=billing_type,
@@ -215,19 +240,30 @@ class PaymentService:
                 appointment_id=appointment.id,
             )
             result = await gateway.create_charge(req)
+            gateway_payment_id, result_status, result_invoice_url = _extract_charge_fields(result)
 
             locked_appointment = self._locked_appointment_query(appointment_id).first()
             if not locked_appointment:
                 raise ValueError("Agendamento não encontrado")
+            if locked_appointment.status in {"cancelled", "completed"}:
+                raise ValueError(f"Agendamento não pode receber cobrança no status '{locked_appointment.status}'")
+
+            existing_now = self.payment_repo.list_by_appointment(appointment_id)
+            concurrent_payment = next(
+                (p for p in existing_now if p.status in {"pending", "received", "confirmed"}),
+                None,
+            )
+            if concurrent_payment:
+                return concurrent_payment
 
             payment = Payment(
                 appointment_id=appointment.id,
                 user_id=appointment.user_id,
-                asaas_payment_id=result.gateway_payment_id,
+                asaas_payment_id=gateway_payment_id,
                 amount_cents=value_cents,
                 billing_type=billing_type,
-                status=result.status,
-                invoice_url=result.invoice_url or result.pix_copy_paste,
+                status=result_status,
+                invoice_url=result_invoice_url,
             )
             self.db.add(payment)
             locked_appointment.status = (
@@ -274,6 +310,8 @@ class PaymentService:
         locked_appointment = self._locked_appointment_query(appointment_id).first()
         if not locked_appointment:
             raise ValueError("Agendamento não encontrado")
+        if locked_appointment.status in {"cancelled", "completed"}:
+            raise ValueError(f"Agendamento não pode receber cobrança no status '{locked_appointment.status}'")
 
         # Double check if someone created a payment concurrently
         existing_now = self.payment_repo.list_by_appointment(appointment_id)
@@ -305,6 +343,9 @@ class PaymentService:
         if not payment.asaas_payment_id:
             return payment.status
 
+        if _is_non_asaas_payment_id(payment.asaas_payment_id):
+            return payment.status
+
         try:
             resp = await self.asaas.get_payment(payment.asaas_payment_id)
             is_deleted = resp.get("deleted") is True
@@ -323,6 +364,8 @@ class PaymentService:
             apply_payment_state(payment, new_status, datetime.now(UTC))
             if (
                 new_status in {"received", "confirmed"}
+                and payment.appointment is not None
+                and payment.appointment_id is not None
                 and payment.appointment.status == "confirmed"
             ):
                 # A reconciliação também precisa alimentar a mesma outbox do webhook.
@@ -374,9 +417,10 @@ class PaymentService:
                 "Só é possível estornar pagamentos recebidos/confirmados"
             )
         if not payment.asaas_payment_id:
-            raise ValueError("Pagamento sem identificador do Asaas")
+            raise ValueError("Pagamento sem identificador do gateway")
 
-        await self.asaas.refund_payment(payment.asaas_payment_id)
+        if not _is_non_asaas_payment_id(payment.asaas_payment_id):
+            await self.asaas.refund_payment(payment.asaas_payment_id)
         apply_payment_state(payment, "refunded", datetime.now(UTC))
         self.db.commit()
         self.db.refresh(payment)
@@ -435,9 +479,12 @@ class PaymentService:
         product_id: int | None = None,
         description: str | None = None,
         billing_type: str = "undefined",
+        quantity: int = 1,
     ) -> Payment:
         if amount_cents <= 0:
             raise ValueError("O valor da cobrança deve ser maior que zero")
+        if quantity < 1:
+            raise ValueError("A quantidade deve ser maior ou igual a 1")
 
         billing_type = billing_type.lower()
         asaas_billing_type = billing_type.upper()
@@ -445,18 +492,31 @@ class PaymentService:
             raise ValueError("Invalid billing type")
 
         charge_desc = description or "Pagamento de produto"
-        if product_id and not description:
+        prod = None
+        if product_id:
             from app.models.product import Product
 
-            prod = self.db.query(Product).filter(Product.id == product_id).first()
+            prod = (
+                self.db.query(Product)
+                .filter(Product.id == product_id)
+                .with_for_update()
+                .first()
+            )
             if prod:
-                charge_desc = f"Produto: {prod.name}"
+                if prod.stock_quantity < quantity:
+                    raise ValueError(
+                        f"Estoque insuficiente para o produto '{prod.name}'. "
+                        f"Disponível: {prod.stock_quantity}, Solicitado: {quantity}"
+                    )
+                if not description:
+                    charge_desc = f"Produto: {prod.name}"
 
         from app.services.company_settings_service import CompanySettingsService
         from app.services.payment_gateways import ChargeRequest, get_payment_gateway
 
         company_settings = CompanySettingsService(self.db).get_or_create_default()
         active_gateway = (company_settings.default_gateway or "asaas").lower().strip()
+        order_ref = f"prod:{product_id or 0}:user:{user_id}:{uuid.uuid4().hex[:8]}"
 
         if active_gateway != "asaas":
             gateway = get_payment_gateway(active_gateway, company_settings.gateway_credentials)
@@ -470,23 +530,26 @@ class PaymentService:
                 customer_cpf=getattr(user, "cpf_cnpj", None),
                 description=charge_desc,
                 billing_type=billing_type,
-                order_ref=f"prod:{product_id}:user:{user_id}",
+                order_ref=order_ref,
                 product_id=product_id,
             )
             result = await gateway.create_charge(req)
+            gateway_payment_id, result_status, result_invoice_url = _extract_charge_fields(result)
             payment = Payment(
                 user_id=user_id,
                 product_id=product_id,
                 appointment_id=None,
                 description=charge_desc,
-                asaas_payment_id=result.gateway_payment_id,
+                asaas_payment_id=gateway_payment_id,
                 amount_cents=amount_cents,
                 billing_type=billing_type,
-                status=result.status,
-                invoice_url=result.invoice_url or result.pix_copy_paste,
+                status=result_status,
+                invoice_url=result_invoice_url,
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
             )
+            if prod is not None:
+                prod.stock_quantity -= quantity
             self.db.add(payment)
             self.db.commit()
             self.db.refresh(payment)
@@ -500,6 +563,7 @@ class PaymentService:
             customer_id=customer_id,
             value=amount_cents / 100.0,
             due_date=due_date,
+            external_reference=order_ref,
             description=charge_desc,
             billing_type=asaas_billing_type,
         )
@@ -519,6 +583,8 @@ class PaymentService:
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
+        if prod is not None:
+            prod.stock_quantity -= quantity
         self.db.add(payment)
         self.db.commit()
         self.db.refresh(payment)
