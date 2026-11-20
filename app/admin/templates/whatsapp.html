@@ -376,6 +376,9 @@ function whatsappConnectionPage() {
                 } else {
                     this.status = 'STOPPED';
                     this.qrCode = null;
+                    if (data.error && showSpinner && window.adminUi) {
+                        window.adminUi.notify(data.error, 'error');
+                    }
                 }
             } catch (err) {
                 console.error('Erro ao verificar status do WhatsApp:', err);

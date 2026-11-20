@@ -252,6 +252,43 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
         except Exception as exc:
             return {"configured": True, "status": "unavailable", "detail": str(exc)}
 
+    def _expected_webhook_url(self) -> str:
+        from app.config import settings as app_settings
+
+        webhook_url = "http://ria360-api:8000/api/webhooks/whatsapp/waha"
+        if app_settings.whatsapp_webhook_secret:
+            webhook_url = f"{webhook_url}?token={app_settings.whatsapp_webhook_secret}"
+        return webhook_url
+
+    def _session_webhook_config(self) -> dict[str, Any]:
+        return {
+            "webhooks": [
+                {
+                    "url": self._expected_webhook_url(),
+                    "events": ["message", "message.any", "session.status"],
+                }
+            ]
+        }
+
+    async def _ensure_webhook_synced(
+        self, client: httpx.AsyncClient, session_data: dict[str, Any]
+    ) -> None:
+        expected_url = self._expected_webhook_url()
+        webhooks = (session_data.get("config") or {}).get("webhooks") or []
+        urls = [w.get("url") for w in webhooks if isinstance(w, dict)]
+        if urls == [expected_url]:
+            return
+        try:
+            await client.put(
+                f"{self.base_url}/api/sessions/{self.session}",
+                json={"config": self._session_webhook_config()},
+                headers=self._headers(),
+                timeout=5.0,
+            )
+            logger.info("Webhook da sessão WAHA '%s' sincronizado com sucesso.", self.session)
+        except Exception as sync_exc:
+            logger.debug("Falha ao sincronizar webhook da sessão WAHA: %s", sync_exc)
+
     async def get_qr_status(self) -> dict[str, Any]:
         """Consulta status da sessão e retorna o QR Code em Base64 se aguardando pareamento."""
         if not self.base_url:
@@ -266,24 +303,12 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
 
                 if res.status_code == 404:
                     # Sessão não existe, cria e inicializa com webhook do RIA 360
-                    from app.config import settings as app_settings
-
-                    webhook_url = "http://ria360-api:8000/api/webhooks/whatsapp/waha"
-                    if app_settings.whatsapp_webhook_secret:
-                        webhook_url = f"{webhook_url}?token={app_settings.whatsapp_webhook_secret}"
                     await client.post(
                         f"{self.base_url}/api/sessions/",
                         json={
                             "name": self.session,
                             "start": True,
-                            "config": {
-                                "webhooks": [
-                                    {
-                                        "url": webhook_url,
-                                        "events": ["message", "message.any", "session.status"],
-                                    }
-                                ]
-                            },
+                            "config": self._session_webhook_config(),
                         },
                         headers=self._headers(),
                     )
@@ -301,25 +326,47 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
                     return {"success": False, "error": f"Erro do WAHA HTTP {res.status_code}"}
 
                 data = res.json()
+                await self._ensure_webhook_synced(client, data)
                 status = data.get("status") or "UNKNOWN"
                 me = data.get("me")
 
-                if status in ("STOPPED", "FAILED"):
-                    try:
-                        await client.post(
-                            f"{self.base_url}/api/sessions/{self.session}/stop",
-                            headers=self._headers(),
-                            timeout=5.0,
-                        )
-                    except Exception as stop_exc:
-                        logger.debug("Tentativa de parar sessão WAHA ignorada: %s", stop_exc)
-
+                if status == "STOPPED":
                     await client.post(
                         f"{self.base_url}/api/sessions/{self.session}/start",
                         headers=self._headers(),
                         timeout=5.0,
                     )
                     await asyncio.sleep(2.0)
+                    res = await client.get(
+                        f"{self.base_url}/api/sessions/{self.session}",
+                        headers=self._headers(),
+                    )
+                    if res.status_code == 200:
+                        data = res.json()
+                        status = data.get("status") or "UNKNOWN"
+                        me = data.get("me")
+
+                if status == "FAILED":
+                    # Credenciais antigas/revogadas impedem reconexão: limpa auth e reinicia para liberar novo QR Code
+                    logger.warning(
+                        "Sessão WAHA '%s' em estado FAILED; executando logout e reinício limpo para gerar novo QR.",
+                        self.session,
+                    )
+                    try:
+                        await client.post(
+                            f"{self.base_url}/api/sessions/{self.session}/logout",
+                            headers=self._headers(),
+                            timeout=5.0,
+                        )
+                    except Exception as logout_exc:
+                        logger.debug("Tentativa de logout WAHA em FAILED ignorada: %s", logout_exc)
+
+                    await client.post(
+                        f"{self.base_url}/api/sessions/{self.session}/start",
+                        headers=self._headers(),
+                        timeout=5.0,
+                    )
+                    await asyncio.sleep(2.5)
                     res = await client.get(
                         f"{self.base_url}/api/sessions/{self.session}",
                         headers=self._headers(),
@@ -385,20 +432,52 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
             return {"success": False, "error": str(exc)}
 
     async def restart_session(self) -> dict[str, Any]:
-        """Reinicia a sessão no WAHA para forçar novo QR Code."""
+        """Reinicia a sessão no WAHA, limpando credenciais quebradas (FAILED) e sincronizando webhook."""
         if not self.base_url:
             return {"success": False, "error": "URL base do WAHA não configurada."}
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                try:
-                    await client.post(
-                        f"{self.base_url}/api/sessions/{self.session}/stop",
+                current = await client.get(
+                    f"{self.base_url}/api/sessions/{self.session}",
+                    headers=self._headers(),
+                    timeout=5.0,
+                )
+                if current.status_code == 404:
+                    create_res = await client.post(
+                        f"{self.base_url}/api/sessions/",
+                        json={
+                            "name": self.session,
+                            "start": True,
+                            "config": self._session_webhook_config(),
+                        },
                         headers=self._headers(),
                         timeout=5.0,
                     )
-                except Exception as stop_exc:
-                    logger.debug("Tentativa de parar sessão WAHA ignorada: %s", stop_exc)
+                    return {"success": create_res.status_code in (200, 201)}
+
+                current_status = (current.json().get("status") if current.status_code == 200 else "") or ""
+                if current_status in ("FAILED", "STOPPED"):
+                    try:
+                        await client.post(
+                            f"{self.base_url}/api/sessions/{self.session}/logout",
+                            headers=self._headers(),
+                            timeout=5.0,
+                        )
+                    except Exception as logout_exc:
+                        logger.debug("Tentativa de logout WAHA ignorada: %s", logout_exc)
+                else:
+                    try:
+                        await client.post(
+                            f"{self.base_url}/api/sessions/{self.session}/stop",
+                            headers=self._headers(),
+                            timeout=5.0,
+                        )
+                    except Exception as stop_exc:
+                        logger.debug("Tentativa de parar sessão WAHA ignorada: %s", stop_exc)
+
+                if current.status_code == 200:
+                    await self._ensure_webhook_synced(client, current.json())
 
                 res = await client.post(
                     f"{self.base_url}/api/sessions/{self.session}/start",

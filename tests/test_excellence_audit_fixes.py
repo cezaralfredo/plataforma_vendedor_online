@@ -260,3 +260,65 @@ def test_whatsapp_webhook_signature_and_secret_validation(anonymous_client: Test
     finally:
         app_settings.meta_app_secret = old_meta
         app_settings.whatsapp_webhook_secret = old_wh
+
+
+@pytest.mark.asyncio
+async def test_waha_recovers_failed_session_and_syncs_webhook_token(monkeypatch):
+    import httpx
+
+    from app.config import settings as global_settings
+    from app.services.whatsapp.waha import WahaWhatsAppProvider
+
+    old_secret = global_settings.whatsapp_webhook_secret
+    global_settings.whatsapp_webhook_secret = "tok_test_123"  # noqa: S105
+    calls: list[tuple[str, str]] = []
+    state = {"status": "FAILED", "webhooks": [{"url": "http://ria360-api:8000/api/webhooks/whatsapp/waha"}]}
+
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, url, **kwargs):
+            calls.append(("GET", url))
+            if url.endswith("/api/sessions/default"):
+                return httpx.Response(
+                    200,
+                    json={"name": "default", "status": state["status"], "config": {"webhooks": state["webhooks"]}},
+                )
+            if url.endswith("/api/default/auth/qr"):
+                return httpx.Response(200, content=b"\x89PNG\r\n\x1a\nfakeqr", headers={"content-type": "image/png"})
+            return httpx.Response(404)
+
+        async def put(self, url, json=None, **kwargs):
+            calls.append(("PUT", url))
+            if json and "config" in json:
+                state["webhooks"] = json["config"]["webhooks"]
+            return httpx.Response(200, json={"ok": True})
+
+        async def post(self, url, **kwargs):
+            calls.append(("POST", url))
+            if url.endswith("/logout"):
+                state["status"] = "STOPPED"
+            elif url.endswith("/start"):
+                state["status"] = "SCAN_QR_CODE"
+            return httpx.Response(201, json={"ok": True})
+
+    try:
+        monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+        provider = WahaWhatsAppProvider(base_url="http://waha:3000", session="default", api_key="k")
+        result = await provider.get_qr_status()
+
+        assert result["success"] is True
+        assert result["status"] == "SCAN_QR_CODE"
+        assert result["qr_code"].startswith("data:image/png;base64,")
+        assert state["webhooks"][0]["url"] == "http://ria360-api:8000/api/webhooks/whatsapp/waha?token=tok_test_123"
+        assert any(m == "POST" and u.endswith("/logout") for m, u in calls)
+        assert any(m == "PUT" and u.endswith("/api/sessions/default") for m, u in calls)
+    finally:
+        global_settings.whatsapp_webhook_secret = old_secret
