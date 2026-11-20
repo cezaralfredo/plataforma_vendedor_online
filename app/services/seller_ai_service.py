@@ -37,7 +37,7 @@ class SellerAIService:
         self.user_service = UserService(db)
         self.payment_service = PaymentService(db)
         self.product_service = ProductService(db)
-        self.triage_service = triage_service or TriageService()
+        self.triage_service = triage_service or TriageService(company_settings=self.company_settings)
 
     def _get_or_create_user(self, phone: str, name: str | None = None) -> User:
         user = self.user_service.find_by_phone(phone)

@@ -116,6 +116,16 @@ class CompanySettings(Base):
     ai_system_prompt: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )
+    # Triagem Ultrarrápida de Nível 1 (TypeSafe Jev via OpenRouter)
+    triage_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    triage_api_key: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
+    triage_model: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="typesafe/jev-1.13"
+    )
 
     # 5. Módulo de Contato & Suporte Humano (Transbordo)
     human_support_phone: Mapped[str | None] = mapped_column(

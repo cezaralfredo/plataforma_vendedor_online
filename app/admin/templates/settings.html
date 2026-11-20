@@ -530,6 +530,73 @@
             </div>
         </div>
 
+        <!-- Triagem Ultrarrápida de Nível 1 (TypeSafe Jev / OpenRouter) -->
+        <div class="pt-4 border-t border-slate-100">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                <div>
+                    <h4 class="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+                        <i class="fas fa-bolt text-amber-500"></i> Triagem Ultrarrápida — TypeSafe Jev (OpenRouter)
+                    </h4>
+                    <p class="text-[11px] text-slate-500 mt-0.5">
+                        Classifica intenção, frustração, pedido de atendente humano e confirmação de PIX em paralelo antes do LLM principal.
+                    </p>
+                </div>
+                <label class="inline-flex items-center gap-2 cursor-pointer shrink-0">
+                    <input type="checkbox" x-model="form.triage_enabled" class="rounded border-slate-300 text-purple-600 focus:ring-purple-500" />
+                    <span class="text-xs font-medium text-slate-700" x-text="form.triage_enabled ? 'Ativado' : 'Desativado'"></span>
+                </label>
+            </div>
+
+            <div x-show="form.triage_enabled" class="grid gap-4 sm:grid-cols-2 rounded-xl border border-amber-200/70 bg-amber-50/40 p-4">
+                <div class="sm:col-span-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block font-medium text-slate-700 text-xs">
+                            Chave de API OpenRouter para o Jev (sk-or-v1-...)
+                        </label>
+                        <button
+                            type="button"
+                            x-show="form.ai_provider === 'openrouter' && form.ai_api_key"
+                            @click="form.triage_api_key = form.ai_api_key; showMessage('Chave OpenRouter copiada para o Jev!')"
+                            class="text-[11px] font-medium text-purple-700 hover:text-purple-900 underline"
+                        >
+                            Usar a mesma chave do OpenRouter acima
+                        </button>
+                    </div>
+                    <div class="relative">
+                        <input
+                            :type="showTriageKey ? 'text' : 'password'"
+                            x-model="form.triage_api_key"
+                            placeholder="sk-or-v1-... (ou deixe em branco para reutilizar a chave OpenRouter principal)"
+                            class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 pr-10 text-xs focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 font-mono"
+                        />
+                        <button
+                            type="button"
+                            @click="showTriageKey = !showTriageKey"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                            <i class="fas text-xs" :class="showTriageKey ? 'fa-eye-slash' : 'fa-eye'"></i>
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1">
+                        Você pode colar sua chave da OpenRouter aqui. Se deixar em branco e o provedor principal acima for <strong>OpenRouter</strong>, a mesma chave será reutilizada automaticamente.
+                    </p>
+                </div>
+
+                <div class="sm:col-span-2">
+                    <label class="block font-medium text-slate-700 text-xs mb-1">
+                        Modelo de Triagem Jev
+                    </label>
+                    <input
+                        type="text"
+                        x-model="form.triage_model"
+                        placeholder="typesafe/jev-1.13"
+                        class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 font-mono"
+                    />
+                    <p class="text-[11px] text-slate-500 mt-1">Padrão recomendado: <code>typesafe/jev-1.13</code> via OpenRouter Decisions API.</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Identidade e Personalidade da Persona -->
         <div class="pt-4 border-t border-slate-100">
             <h4 class="text-xs font-semibold text-slate-900 mb-3 flex items-center gap-1.5">
@@ -978,6 +1045,7 @@ function companySettingsManager() {
         messageError: false,
         copiedPix: false,
         showAiKey: false,
+        showTriageKey: false,
         form: {
             company_name: settings.company_name || 'Minha Empresa',
             assistant_name: settings.assistant_name || 'Assistente',
@@ -1009,6 +1077,9 @@ function companySettingsManager() {
             ai_base_url: settings.ai_base_url || '',
             ai_temperature: settings.ai_temperature !== undefined ? Number(settings.ai_temperature) : 0.3,
             ai_system_prompt: settings.ai_system_prompt || '',
+            triage_enabled: settings.triage_enabled !== undefined ? !!settings.triage_enabled : true,
+            triage_api_key: settings.triage_api_key || '',
+            triage_model: settings.triage_model || 'typesafe/jev-1.13',
             human_support_phone: settings.human_support_phone || '',
             human_support_name: settings.human_support_name || 'Equipe de Atendimento',
             human_support_message: settings.human_support_message || '',

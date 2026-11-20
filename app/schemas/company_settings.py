@@ -219,6 +219,9 @@ class CompanySettingsCreate(BaseModel):
     ai_base_url: str | None = None
     ai_temperature: Decimal = Decimal("0.3")
     ai_system_prompt: str | None = None
+    triage_enabled: bool = True
+    triage_api_key: str | None = None
+    triage_model: str = "typesafe/jev-1.13"
     human_support_phone: str | None = None
     human_support_name: str | None = "Equipe de Atendimento"
     human_support_message: str | None = None
@@ -263,6 +266,9 @@ class CompanySettingsUpdate(BaseModel):
     ai_base_url: str | None = None
     ai_temperature: Decimal | None = None
     ai_system_prompt: str | None = None
+    triage_enabled: bool | None = None
+    triage_api_key: str | None = None
+    triage_model: str | None = None
     human_support_phone: str | None = None
     human_support_name: str | None = None
     human_support_message: str | None = None
@@ -308,6 +314,9 @@ class CompanySettingsResponse(BaseModel):
     ai_base_url: str | None = None
     ai_temperature: Decimal = Decimal("0.3")
     ai_system_prompt: str | None = None
+    triage_enabled: bool = True
+    triage_api_key: str | None = None
+    triage_model: str = "typesafe/jev-1.13"
     human_support_phone: str | None = None
     human_support_name: str | None = "Equipe de Atendimento"
     human_support_message: str | None = None

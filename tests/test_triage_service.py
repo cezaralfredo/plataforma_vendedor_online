@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.config import settings as app_settings
-from app.main import app
 from app.mcp.tools import handle_tool_call
 from app.services.triage_service import HUMAN_SUPPORT_URL, TriageService
 
@@ -184,9 +183,7 @@ async def test_triage_network_error_fallback():
     assert result.model_used == "fallback-local"
 
 
-def test_triage_endpoint_fastapi():
-    client = TestClient(app)
-
+def test_triage_endpoint_fastapi(anonymous_client: TestClient):
     with patch("app.services.triage_service.TriageService.evaluate") as mock_eval:
         from app.schemas.triage import TriageResult
         mock_eval.return_value = TriageResult(
@@ -203,7 +200,7 @@ def test_triage_endpoint_fastapi():
             is_fallback=False,
         )
 
-        response = client.post(
+        response = anonymous_client.post(
             "/api/triage",
             headers={"Authorization": f"Bearer {app_settings.api_key}"},
             json={"message": "Preciso de um atendente humano agora", "phone": "5585999999999"},
@@ -245,3 +242,51 @@ async def test_triage_mcp_tool_execution():
         assert "Triagem Concluída" in text
         assert "falar_humano" in text
         assert "fast_handoff_human" in text
+
+
+@pytest.mark.asyncio
+async def test_triage_uses_panel_triage_key_and_openrouter_fallback():
+    from app.models.company_settings import CompanySettings
+
+    env_settings = Settings(openrouter_api_key="", triage_enabled=True)
+
+    # 1. Chave explícita do painel para o Jev tem prioridade
+    cs_explicit = CompanySettings(
+        company_name="Salão",
+        ai_provider="openai",
+        ai_api_key="sk-openai-123",
+        triage_enabled=True,
+        triage_api_key="sk-or-v1-panel-jev",
+        triage_model="typesafe/jev-1.13",
+    )
+    svc_explicit = TriageService(settings=env_settings, company_settings=cs_explicit)
+    enabled, key, model = svc_explicit._resolve_triage_config()
+    assert enabled is True
+    assert key == "sk-or-v1-panel-jev"
+    assert model == "typesafe/jev-1.13"
+
+    # 2. Se triage_api_key estiver vazia e ai_provider == openrouter, reutiliza ai_api_key
+    cs_reuse = CompanySettings(
+        company_name="Salão",
+        ai_provider="openrouter",
+        ai_api_key="sk-or-v1-shared",
+        triage_enabled=True,
+        triage_api_key="",
+        triage_model="typesafe/jev-1.13",
+    )
+    svc_reuse = TriageService(settings=env_settings, company_settings=cs_reuse)
+    enabled, key, _ = svc_reuse._resolve_triage_config()
+    assert enabled is True
+    assert key == "sk-or-v1-shared"
+
+    # 3. Se triage_enabled=False no painel, respeita desativação
+    cs_disabled = CompanySettings(
+        company_name="Salão",
+        ai_provider="openrouter",
+        ai_api_key="sk-or-v1-shared",
+        triage_enabled=False,
+        triage_api_key="sk-or-v1-panel-jev",
+    )
+    svc_disabled = TriageService(settings=env_settings, company_settings=cs_disabled)
+    result = await svc_disabled.evaluate("Quero falar com um atendente")
+    assert result.is_fallback is True

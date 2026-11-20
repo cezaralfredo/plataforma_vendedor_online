@@ -5,6 +5,7 @@ import httpx
 
 from app.config import Settings
 from app.config import settings as default_settings
+from app.models.company_settings import CompanySettings
 from app.schemas.triage import TriageActionType, TriageResult
 
 logger = logging.getLogger(__name__)
@@ -20,9 +21,39 @@ class TriageService:
     Implementa resiliência com fail-open e fallback automático para o Hermes LLM.
     """
 
-    def __init__(self, settings: Settings | None = None, http_client: httpx.AsyncClient | None = None):
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        http_client: httpx.AsyncClient | None = None,
+        company_settings: CompanySettings | None = None,
+    ):
         self.settings = settings or default_settings
         self._client = http_client
+        self.company_settings = company_settings
+
+    def _resolve_triage_config(self) -> tuple[bool, str, str]:
+        """Resolve (enabled, api_key, model) priorizando o painel e com fallback para env."""
+        enabled = bool(self.settings.triage_enabled)
+        api_key = ""
+        model = self.settings.triage_model
+
+        if self.company_settings is not None:
+            if self.company_settings.triage_enabled is not None:
+                enabled = bool(self.company_settings.triage_enabled)
+            panel_key = (getattr(self.company_settings, "triage_api_key", None) or "").strip()
+            if panel_key:
+                api_key = panel_key
+            elif (getattr(self.company_settings, "ai_provider", "") or "").lower().strip() == "openrouter":
+                api_key = (getattr(self.company_settings, "ai_api_key", None) or "").strip()
+
+            panel_model = (getattr(self.company_settings, "triage_model", None) or "").strip()
+            if panel_model:
+                model = panel_model
+
+        if not api_key:
+            api_key = (self.settings.openrouter_api_key or "").strip()
+
+        return enabled, api_key, model
 
     async def evaluate(self, message: str, phone: str | None = None) -> TriageResult:
         """
@@ -33,12 +64,13 @@ class TriageService:
         if not trimmed:
             return self._build_fallback(trimmed, reason="empty_message")
 
-        if not self.settings.triage_enabled or not self.settings.openrouter_api_key:
+        triage_enabled, api_key, triage_model = self._resolve_triage_config()
+        if not triage_enabled or not api_key:
             return self._build_fallback(trimmed, reason="triage_disabled_or_no_key")
 
-        payload = self._build_payload(trimmed)
+        payload = self._build_payload(trimmed, model=triage_model)
         headers = {
-            "Authorization": f"Bearer {self.settings.openrouter_api_key}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://plataforma-atende-agenda.local",
             "X-Title": "Plataforma Atende Agenda - Triage",
@@ -76,9 +108,9 @@ class TriageService:
             logger.warning("Falha na chamada de triagem com Jev: %s. Aplicando fallback seguro.", exc)
             return self._build_fallback(trimmed, reason="exception_fallback")
 
-    def _build_payload(self, message: str) -> dict[str, Any]:
+    def _build_payload(self, message: str, model: str | None = None) -> dict[str, Any]:
         return {
-            "model": self.settings.triage_model,
+            "model": model or self.settings.triage_model,
             "state": message,
             "questions": {
                 "intent": {
