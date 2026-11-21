@@ -17,6 +17,7 @@ class SentMessageTracker:
         self.max_size = max_size
         self.ttl_seconds = ttl_seconds
         self._sent_ids: OrderedDict[str, float] = OrderedDict()
+        self._inbound_ids: OrderedDict[str, float] = OrderedDict()
         self._instance_lock = Lock()
 
     @classmethod
@@ -52,7 +53,25 @@ class SentMessageTracker:
                     self._sent_ids.pop(clean_id, None)
             return False
 
+    def is_duplicate_inbound(self, message_id: str) -> bool:
+        """Retorna True se o ID de mensagem inbound já foi processado recentemente; caso contrário registra e retorna False."""
+        if not message_id:
+            return False
+        clean_id = str(message_id).strip()
+        if not clean_id:
+            return False
+        now = time.time()
+        with self._instance_lock:
+            existing = self._inbound_ids.get(clean_id)
+            if existing is not None and (now - existing) <= self.ttl_seconds:
+                return True
+            self._inbound_ids[clean_id] = now
+            while len(self._inbound_ids) > self.max_size:
+                self._inbound_ids.popitem(last=False)
+            return False
+
     def clear(self) -> None:
         """Limpa o cache (usado principalmente em testes)."""
         with self._instance_lock:
             self._sent_ids.clear()
+            self._inbound_ids.clear()

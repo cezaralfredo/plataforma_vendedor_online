@@ -322,3 +322,115 @@ async def test_waha_recovers_failed_session_and_syncs_webhook_token(monkeypatch)
         assert any(m == "PUT" and u.endswith("/api/sessions/default") for m, u in calls)
     finally:
         global_settings.whatsapp_webhook_secret = old_secret
+
+
+def test_waha_ignores_status_broadcast_groups_old_history_and_empty_media():
+    import time
+
+    from app.services.whatsapp.waha import WahaWhatsAppProvider
+
+    provider = WahaWhatsAppProvider(base_url="http://waha:3000", session="default", api_key="k")
+    now_ts = int(time.time())
+
+    # 1. Status/Stories com participantAlt do contato (NÃO pode iniciar conversa no privado!)
+    status_payload = {
+        "event": "message.any",
+        "payload": {
+            "id": "st_1",
+            "from": "status@broadcast",
+            "chatId": "status@broadcast",
+            "body": "Bom dia!",
+            "timestamp": now_ts,
+            "_data": {
+                "key": {
+                    "remoteJid": "status@broadcast",
+                    "participantAlt": "5585999991111@s.whatsapp.net",
+                }
+            },
+        },
+    }
+    assert provider.parse_inbound_webhook(status_payload) is None
+
+    # 2. Mensagem em grupo com participantAlt do membro (NÃO pode chamar membro no privado!)
+    group_payload = {
+        "event": "message.any",
+        "payload": {
+            "id": "grp_1",
+            "from": "120363012345678901@g.us",
+            "body": "Oi pessoal",
+            "timestamp": now_ts,
+            "_data": {
+                "key": {
+                    "remoteJid": "120363012345678901@g.us",
+                    "participantAlt": "5585999992222@s.whatsapp.net",
+                }
+            },
+        },
+    }
+    assert provider.parse_inbound_webhook(group_payload) is None
+
+    # 3. Canal (@newsletter)
+    newsletter_payload = {
+        "event": "message.any",
+        "payload": {
+            "id": "nl_1",
+            "from": "120363099999@newsletter",
+            "body": "Novidade do canal",
+            "timestamp": now_ts,
+        },
+    }
+    assert provider.parse_inbound_webhook(newsletter_payload) is None
+
+    # 4. Mensagem antiga de sincronização de histórico (> 5 min)
+    old_payload = {
+        "event": "message.any",
+        "payload": {
+            "id": "old_1",
+            "from": "5585999993333@c.us",
+            "body": "Mensagem de ontem",
+            "timestamp": now_ts - 600,
+        },
+    }
+    assert provider.parse_inbound_webhook(old_payload) is None
+
+    # 5. Mídia não-áudio sem texto (foto/figurinha sem legenda)
+    empty_media_payload = {
+        "event": "message.any",
+        "payload": {
+            "id": "med_1",
+            "from": "5585999994444@c.us",
+            "body": "",
+            "hasMedia": True,
+            "type": "sticker",
+            "timestamp": now_ts,
+        },
+    }
+    assert provider.parse_inbound_webhook(empty_media_payload) is None
+
+    # 6. Reação / protocolo
+    reaction_payload = {
+        "event": "message.any",
+        "payload": {
+            "id": "react_1",
+            "from": "5585999995555@c.us",
+            "body": "👍",
+            "type": "reaction",
+            "timestamp": now_ts,
+        },
+    }
+    assert provider.parse_inbound_webhook(reaction_payload) is None
+
+    # 7. Conversa privada 1:1 legítima e recente continua funcionando
+    valid_payload = {
+        "event": "message.any",
+        "payload": {
+            "id": "ok_1",
+            "from": "5585999996666@c.us",
+            "body": "Olá, quero agendar Botox",
+            "timestamp": now_ts,
+        },
+    }
+    parsed = provider.parse_inbound_webhook(valid_payload)
+    assert parsed is not None
+    assert parsed.sender_phone == "5585999996666"
+    assert parsed.text == "Olá, quero agendar Botox"

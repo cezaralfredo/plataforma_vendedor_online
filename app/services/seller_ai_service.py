@@ -17,6 +17,7 @@ from app.services.triage_service import TriageService
 from app.services.user_service import UserService
 from app.services.whatsapp.base import InboundMessage
 from app.services.whatsapp.gateway import WhatsAppGatewayService
+from app.services.whatsapp.tracker import SentMessageTracker
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +99,26 @@ class SellerAIService:
 
     async def handle_inbound_message(self, inbound: InboundMessage) -> str:
         """Ponto de entrada único para qualquer mensagem recebida no WhatsApp."""
-        phone = inbound.sender_phone
-        text = inbound.text.strip()
+        phone = (inbound.sender_phone or "").strip()
+        text = (inbound.text or "").strip()
+
+        # Defesa em profundidade: nunca responder grupos, Status/Stories, broadcasts, canais ou mensagens vazias sem áudio
+        lowered_phone = phone.lower()
+        is_audio_with_media = getattr(inbound, "media_type", None) == "audio" and bool(inbound.media_url)
+        if (
+            not phone
+            or (not text and not is_audio_with_media)
+            or lowered_phone == "status@broadcast"
+            or lowered_phone.endswith(("@g.us", "@broadcast", "@newsletter"))
+        ):
+            logger.debug("Mensagem ignorada por filtro de segurança (phone=%s, text_len=%d).", phone, len(text))
+            return ""
+
+        # Deduplicação de webhooks repetidos (ex: retries ou eventos duplicados)
+        if inbound.message_id and SentMessageTracker.get_instance().is_duplicate_inbound(inbound.message_id):
+            logger.debug("Mensagem %s ignorada: já processada recentemente.", inbound.message_id)
+            return ""
+
         user = self._get_or_create_user(phone, inbound.sender_name)
 
         # Se for mensagem enviada do próprio número (fromMe: true / WhatsApp Business App)

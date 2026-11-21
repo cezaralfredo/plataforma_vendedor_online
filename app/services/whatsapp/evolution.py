@@ -127,8 +127,9 @@ class EvolutionWhatsAppProvider(BaseWhatsAppProvider):
         key = body.get("key") or {}
 
         remote_jid = key.get("remoteJid") or ""
-        # Ignora mensagens de grupos do WhatsApp
-        if remote_jid.endswith("@g.us"):
+        # Ignora grupos (@g.us), Status/Stories (@broadcast) e canais (@newsletter)
+        remote_lower = remote_jid.strip().lower()
+        if remote_lower == "status@broadcast" or remote_lower.endswith(("@g.us", "@broadcast", "@newsletter")):
             return None
 
         clean_phone = self._clean_phone(remote_jid)

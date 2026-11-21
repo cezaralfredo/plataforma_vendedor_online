@@ -78,7 +78,7 @@ services:
       - WHATSAPP_DEFAULT_ENGINE=NOWEB
       - WHATSAPP_RESTART_ALL_SESSIONS=true
       - WHATSAPP_HOOK_URL=http://ria360-api:8000/api/webhooks/whatsapp/waha?token=${WHATSAPP_WEBHOOK_SECRET:-ria360_webhook_secret_2026}
-      - WHATSAPP_HOOK_EVENTS=message.any,message.ack,message.edited,message.revoked,message.reaction,session.status,state.change
+      - WHATSAPP_HOOK_EVENTS=message.any,session.status,state.change
     volumes:
       - ria360_waha_data:/app/.sessions
       - ria360_waha_media:/app/.media

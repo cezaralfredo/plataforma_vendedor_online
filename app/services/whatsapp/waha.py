@@ -2,6 +2,7 @@ import asyncio
 import base64
 import logging
 import re
+import time
 from typing import Any
 
 import httpx
@@ -137,26 +138,73 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
                 error=str(exc),
             )
 
+    _IGNORED_JID_SUFFIXES = ("@g.us", "@broadcast", "@newsletter")
+    _IGNORED_MESSAGE_TYPES = frozenset({
+        "protocol",
+        "reaction",
+        "revoked",
+        "e2e_notification",
+        "notification_template",
+        "call_log",
+        "ciphertext",
+        "gp2",
+        "broadcast_notification",
+        "status",
+        "system",
+    })
+    _MAX_INBOUND_AGE_SECONDS = 300  # 5 minutos (ignora histórico antigo de sincronização)
+
     def parse_inbound_webhook(self, payload: dict[str, Any]) -> InboundMessage | None:
-        """Processa webhook do WAHA (evento 'message' ou 'message.any')."""
+        """Processa webhook do WAHA (apenas conversas privadas 1:1 reais e recentes)."""
         event = payload.get("event")
         msg_data = payload.get("payload") or payload
 
         if event and event not in ("message", "message.any"):
             return None
 
-        is_from_me = bool(msg_data.get("fromMe", False))
         data_block = msg_data.get("_data") or {}
         key_block = data_block.get("key") or msg_data.get("key") or {}
+
+        # 1. Bloqueia IMEDIATAMENTE grupos (@g.us), Status/Stories (status@broadcast),
+        # listas de transmissão (@broadcast) e canais (@newsletter) ANTES de resolver remetente.
+        raw_jids = [
+            msg_data.get("from"),
+            msg_data.get("to"),
+            msg_data.get("chatId"),
+            key_block.get("remoteJid"),
+        ]
+        for jid in raw_jids:
+            jid_str = str(jid or "").strip().lower()
+            if jid_str == "status@broadcast" or jid_str.endswith(self._IGNORED_JID_SUFFIXES):
+                return None
+
+        # 2. Ignora mensagens de protocolo, reações, chamadas, notificações de sistema
+        raw_type = str(msg_data.get("type") or "").strip().lower()
+        if raw_type in self._IGNORED_MESSAGE_TYPES:
+            return None
+
+        # 3. Ignora mensagens antigas (ex: sincronização de histórico ao conectar WAHA)
+        raw_ts = msg_data.get("timestamp") or data_block.get("messageTimestamp")
+        if raw_ts is not None:
+            try:
+                ts_val = float(raw_ts)
+                if ts_val > 1e12:  # milissegundos -> segundos
+                    ts_val = ts_val / 1000.0
+                if ts_val > 1_000_000_000 and (time.time() - ts_val) > self._MAX_INBOUND_AGE_SECONDS:
+                    logger.debug("Mensagem WAHA ignorada por ser antiga (timestamp=%s).", raw_ts)
+                    return None
+            except (TypeError, ValueError):
+                pass
+
+        is_from_me = bool(msg_data.get("fromMe", False) or key_block.get("fromMe", False))
 
         if is_from_me:
             # Em mensagens enviadas pelo app móvel/bot, o destinatário é o cliente
             target = msg_data.get("to") or msg_data.get("chatId") or msg_data.get("from") or ""
         else:
-            # 1. Prioriza identificador canônico de telefone se disponível (remoteJidAlt / participantAlt / senderPn)
+            # Prioriza identificador canônico de telefone de chats 1:1 (NUNCA participantAlt de grupos/status)
             candidate_pns = [
                 key_block.get("remoteJidAlt"),
-                key_block.get("participantAlt"),
                 data_block.get("senderPn"),
                 data_block.get("pn"),
                 msg_data.get("senderPn"),
@@ -164,22 +212,27 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
             ]
             canonical = None
             for cand in candidate_pns:
-                if cand and ("@c.us" in str(cand) or "@s.whatsapp.net" in str(cand)):
-                    canonical = str(cand)
+                cand_str = str(cand or "").strip()
+                if (
+                    cand_str
+                    and not cand_str.lower().endswith(self._IGNORED_JID_SUFFIXES)
+                    and ("@c.us" in cand_str or "@s.whatsapp.net" in cand_str)
+                ):
+                    canonical = cand_str
                     break
 
             target = canonical or msg_data.get("from") or msg_data.get("chatId") or ""
 
-        # Ignora mensagens de grupos do WhatsApp
-        if str(target).endswith("@g.us"):
+        target_str = str(target or "").strip()
+        if not target_str or target_str.lower().endswith(self._IGNORED_JID_SUFFIXES):
             return None
 
         # Se for um LID (@lid), preserva a tag para roteamento e envio correto
-        if str(target).endswith("@lid"):
-            clean_digits = re.sub(r"\D", "", str(target))
-            clean_phone = f"{clean_digits}@lid"
+        if target_str.endswith("@lid"):
+            clean_digits = re.sub(r"\D", "", target_str)
+            clean_phone = f"{clean_digits}@lid" if clean_digits else ""
         else:
-            clean_phone = self._clean_phone(target)
+            clean_phone = self._clean_phone(target_str)
 
         if not clean_phone:
             return None
@@ -195,18 +248,18 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
         has_media = msg_data.get("hasMedia") is True
         media_info = msg_data.get("media") or {}
         if has_media:
-            mimetype = media_info.get("mimetype") or msg_data.get("_data", {}).get("mimetype") or ""
-            if "audio" in mimetype or msg_data.get("type") in ("ptt", "audio"):
+            mimetype = media_info.get("mimetype") or data_block.get("mimetype") or ""
+            if "audio" in mimetype or raw_type in ("ptt", "audio"):
                 media_type = "audio"
                 media_url = media_info.get("url")
                 if not text:
                     text = "[Mensagem de áudio recebida]"
 
-        if not text and not has_media:
+        # Só processa se houver texto real ou áudio para transcrever (evita disparar para figurinhas/fotos vazias)
+        if not text:
             return None
 
         msg_id = str(msg_data.get("id") or "")
-        data_block = msg_data.get("_data") or {}
         sender_name = (
             "Atendente"
             if is_from_me
@@ -262,21 +315,35 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
 
     def _session_webhook_config(self) -> dict[str, Any]:
         return {
+            "ignore": {
+                "status": True,
+                "groups": True,
+                "channels": True,
+                "broadcast": True,
+            },
             "webhooks": [
                 {
                     "url": self._expected_webhook_url(),
-                    "events": ["message", "message.any", "session.status"],
+                    "events": ["message.any", "session.status"],
                 }
-            ]
+            ],
         }
 
     async def _ensure_webhook_synced(
         self, client: httpx.AsyncClient, session_data: dict[str, Any]
     ) -> None:
         expected_url = self._expected_webhook_url()
-        webhooks = (session_data.get("config") or {}).get("webhooks") or []
+        cfg = session_data.get("config") or {}
+        webhooks = cfg.get("webhooks") or []
         urls = [w.get("url") for w in webhooks if isinstance(w, dict)]
-        if urls == [expected_url]:
+        events_ok = (
+            len(webhooks) == 1
+            and isinstance(webhooks[0], dict)
+            and set(webhooks[0].get("events") or []) == {"message.any", "session.status"}
+        )
+        ignore_cfg = cfg.get("ignore") or {}
+        ignore_ok = all(bool(ignore_cfg.get(k)) for k in ("status", "groups", "channels", "broadcast"))
+        if urls == [expected_url] and events_ok and ignore_ok:
             return
         try:
             await client.put(
@@ -285,7 +352,7 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
                 headers=self._headers(),
                 timeout=5.0,
             )
-            logger.info("Webhook da sessão WAHA '%s' sincronizado com sucesso.", self.session)
+            logger.info("Webhook e filtros (ignore status/groups/channels/broadcast) da sessão WAHA '%s' sincronizados.", self.session)
         except Exception as sync_exc:
             logger.debug("Falha ao sincronizar webhook da sessão WAHA: %s", sync_exc)
 
