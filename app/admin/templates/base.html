@@ -17,7 +17,8 @@
             return fetch(url, {...options, headers, credentials: 'same-origin'});
         }
     </script>
-    <title>{% block title %}Admin - Agenda Atende{% endblock %}</title>
+    {% set brand_name = request.state.brand_name if request is defined and request.state is defined and request.state.brand_name is defined and request.state.brand_name else 'RIA 360' %}
+    <title>{% block title %}Admin - {{ brand_name }}{% endblock %}</title>
     <link href="/admin/static/admin.css" rel="stylesheet">
     <script defer src="/admin/static/admin-ui.js"></script>
     <script defer src="/admin/static/vendor/alpine.min.js"></script>
@@ -32,69 +33,79 @@
             <div class="flex flex-col h-full">
                 <div class="border-b border-slate-200/80 px-6 py-5">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-500/20">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-500/20">
                             <i class="fas fa-store text-base"></i>
                         </div>
-                        <div>
-                            <h1 class="text-base font-semibold tracking-tight text-slate-900">Anauê Design</h1>
+                        <div class="min-w-0">
+                            <h1 class="truncate text-base font-semibold tracking-tight text-slate-900" title="{{ brand_name }}">{{ brand_name }}</h1>
                             <div class="flex items-center gap-1.5 mt-0.5">
-                                <span class="text-[10px] font-semibold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">Vendedor Online</span>
+                                <span class="text-[10px] font-semibold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">Gestão & IA</span>
                             </div>
                         </div>
                     </div>
                 </div>
-                <nav class="flex-1 space-y-1.5 overflow-y-auto px-4 py-6" aria-label="Navegação principal">
-                    <p class="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Gestão</p>
-                    <a href="/admin"
-                       class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path == '/admin' %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
-                        <i class="fas fa-tachometer-alt mr-3 w-5 text-center text-slate-500 {% if request.url.path == '/admin' %}text-blue-600{% endif %}"></i>
-                        Dashboard
-                    </a>
-                    <a href="/admin/appointments"
-                       class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/appointments') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
-                        <i class="fas fa-calendar-check mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/appointments') %}text-blue-600{% endif %}"></i>
-                        Agendamentos
-                    </a>
-                    <a href="/admin/payments"
-                       class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/payments') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
-                        <i class="fas fa-credit-card mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/payments') %}text-blue-600{% endif %}"></i>
-                        Pagamentos
-                    </a>
-                    <a href="/admin/clients"
-                       class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/clients') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
-                        <i class="fas fa-user-friends mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/clients') %}text-blue-600{% endif %}"></i>
-                        Clientes
-                    </a>
-                    <a href="/admin/professionals"
-                       class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/professionals') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
-                        <i class="fas fa-users mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/professionals') %}text-blue-600{% endif %}"></i>
-                        Profissionais
-                    </a>
-                    <a href="/admin/services"
-                       class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/services') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
-                        <i class="fas fa-concierge-bell mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/services') %}text-blue-600{% endif %}"></i>
-                        Serviços
-                    </a>
-                    <a href="/admin/products"
-                       class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/products') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
-                        <i class="fas fa-box-open mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/products') %}text-blue-600{% endif %}"></i>
-                        Produtos
-                    </a>
-                    <a href="/admin/whatsapp"
-                       class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/whatsapp') %}bg-emerald-50/90 text-emerald-700 ring-1 ring-emerald-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
-                        <i class="fab fa-whatsapp mr-3 w-5 text-center text-emerald-600"></i>
-                        Conexão WhatsApp
-                    </a>
-                    <a href="/admin/settings"
-                       class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/settings') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
-                        <i class="fas fa-sliders-h mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/settings') %}text-blue-600{% endif %}"></i>
-                        Configurações
-                    </a>
-                    <a href="/admin/maintenance"
-                       class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/maintenance') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
-                        <i class="fas fa-database mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/maintenance') %}text-blue-600{% endif %}"></i>
-                        Limpeza & Retenção
-                    </a>
+                <nav class="flex-1 space-y-5 overflow-y-auto px-4 py-5" aria-label="Navegação principal">
+                    <div class="space-y-1">
+                        <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Operação</p>
+                        <a href="/admin"
+                           class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path == '/admin' %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
+                            <i class="fas fa-tachometer-alt mr-3 w-5 text-center text-slate-500 {% if request.url.path == '/admin' %}text-blue-600{% endif %}"></i>
+                            Dashboard
+                        </a>
+                        <a href="/admin/appointments"
+                           class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/appointments') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
+                            <i class="fas fa-calendar-check mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/appointments') %}text-blue-600{% endif %}"></i>
+                            Agendamentos
+                        </a>
+                        <a href="/admin/payments"
+                           class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/payments') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
+                            <i class="fas fa-credit-card mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/payments') %}text-blue-600{% endif %}"></i>
+                            Pagamentos
+                        </a>
+                        <a href="/admin/clients"
+                           class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/clients') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
+                            <i class="fas fa-user-friends mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/clients') %}text-blue-600{% endif %}"></i>
+                            Clientes
+                        </a>
+                    </div>
+
+                    <div class="space-y-1">
+                        <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Catálogo & Equipe</p>
+                        <a href="/admin/services"
+                           class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/services') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
+                            <i class="fas fa-concierge-bell mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/services') %}text-blue-600{% endif %}"></i>
+                            Serviços
+                        </a>
+                        <a href="/admin/products"
+                           class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/products') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
+                            <i class="fas fa-box-open mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/products') %}text-blue-600{% endif %}"></i>
+                            Produtos
+                        </a>
+                        <a href="/admin/professionals"
+                           class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/professionals') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
+                            <i class="fas fa-users mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/professionals') %}text-blue-600{% endif %}"></i>
+                            Profissionais
+                        </a>
+                    </div>
+
+                    <div class="space-y-1">
+                        <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Automação & Sistema</p>
+                        <a href="/admin/whatsapp"
+                           class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/whatsapp') %}bg-emerald-50/90 text-emerald-700 ring-1 ring-emerald-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
+                            <i class="fab fa-whatsapp mr-3 w-5 text-center text-emerald-600"></i>
+                            Conexão WhatsApp
+                        </a>
+                        <a href="/admin/settings"
+                           class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/settings') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
+                            <i class="fas fa-sliders-h mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/settings') %}text-blue-600{% endif %}"></i>
+                            Configurações
+                        </a>
+                        <a href="/admin/maintenance"
+                           class="flex items-center rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all {% if request.url.path.startswith('/admin/maintenance') %}bg-blue-50/90 text-blue-700 ring-1 ring-blue-500/20 shadow-xs{% else %}text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-normal{% endif %}">
+                            <i class="fas fa-database mr-3 w-5 text-center text-slate-500 {% if request.url.path.startswith('/admin/maintenance') %}text-blue-600{% endif %}"></i>
+                            Limpeza & Retenção
+                        </a>
+                    </div>
                 </nav>
                 <div class="border-t border-slate-200/80 p-4 space-y-3">
                     {% if request.state.admin_context.method == 'session' %}
@@ -138,11 +149,35 @@
                             {% block page_title %}Dashboard{% endblock %}
                         </h2>
                     </div>
-                    <div class="flex items-center space-x-4">
-                        <div class="hidden items-center text-xs font-medium text-emerald-700 sm:inline-flex px-3 py-1 rounded-full bg-emerald-50/90 border border-emerald-200/80">
-                            <span class="mr-2 h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            <span>Sistema online</span>
-                        </div>
+                    <div class="flex items-center space-x-3"
+                         x-data="{
+                             waState: 'idle',
+                             async checkWa() {
+                                 if (window.location.pathname.startsWith('/admin/whatsapp')) return;
+                                 try {
+                                     const r = await adminFetch('/admin/api/whatsapp/qr');
+                                     if (!r.ok) return;
+                                     const d = await r.json();
+                                     if (d && d.success) this.waState = d.status || 'STOPPED';
+                                 } catch (_) {}
+                             }
+                         }"
+                         x-init="checkWa()">
+                        <a href="/admin/whatsapp"
+                           class="hidden items-center text-xs font-medium sm:inline-flex px-3 py-1.5 rounded-full border transition-all"
+                           :class="{
+                               'text-emerald-700 bg-emerald-50/90 border-emerald-200/80 hover:bg-emerald-100/80': waState === 'WORKING' || waState === 'idle',
+                               'text-amber-700 bg-amber-50/90 border-amber-200/80 hover:bg-amber-100/80': waState === 'SCAN_QR_CODE' || waState === 'STARTING',
+                               'text-rose-700 bg-rose-50/90 border-rose-200/80 hover:bg-rose-100/80': waState !== 'WORKING' && waState !== 'idle' && waState !== 'SCAN_QR_CODE' && waState !== 'STARTING'
+                           }">
+                            <span class="mr-2 h-2 w-2 rounded-full"
+                                  :class="{
+                                      'bg-emerald-500 animate-pulse': waState === 'WORKING' || waState === 'idle',
+                                      'bg-amber-500 animate-ping': waState === 'SCAN_QR_CODE' || waState === 'STARTING',
+                                      'bg-rose-500': waState !== 'WORKING' && waState !== 'idle' && waState !== 'SCAN_QR_CODE' && waState !== 'STARTING'
+                                  }"></span>
+                            <span x-text="waState === 'WORKING' ? 'WhatsApp conectado' : (waState === 'SCAN_QR_CODE' ? 'WhatsApp: ler QR Code' : (waState === 'STARTING' ? 'WhatsApp iniciando...' : (waState === 'idle' ? 'Sistema online' : 'WhatsApp desconectado')))">Sistema online</span>
+                        </a>
                     </div>
                 </div>
             </header>

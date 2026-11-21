@@ -17,96 +17,117 @@
         </button>
     </div>
 
-    <div x-show="loading" x-cloak class="rounded-2xl border border-blue-200/80 bg-blue-50/70 p-4 text-blue-800 text-sm font-medium flex items-center gap-2">
-        <i class="fas fa-circle-notch fa-spin text-blue-600"></i>
-        <span>Carregando indicadores...</span>
+    <!-- Barra de Atalhos do Dia -->
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-5 py-3.5 shadow-sm">
+        <div class="flex items-center gap-2 text-xs text-slate-500 font-medium">
+            <i class="fas fa-bolt text-blue-600"></i>
+            <span>Atalhos do dia</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="/admin/appointments" class="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-all">
+                <i class="fas fa-calendar-plus"></i>
+                <span>Agendamentos</span>
+            </a>
+            <a href="/admin/clients" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all">
+                <i class="fas fa-user-plus text-slate-400"></i>
+                <span>Clientes</span>
+            </a>
+            <a href="/admin/whatsapp" class="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200/90 bg-emerald-50/60 px-3.5 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-all">
+                <i class="fab fa-whatsapp"></i>
+                <span>WhatsApp</span>
+            </a>
+            <a href="/admin/settings" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all">
+                <i class="fas fa-robot text-purple-500"></i>
+                <span>Configurar IA</span>
+            </a>
+        </div>
     </div>
 
     <!-- KPI Cards Primary Row -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <!-- Agendamentos Hoje -->
-        <div class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-blue-300 transition-all duration-200 flex flex-col justify-between">
+        <a href="/admin/appointments" class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-blue-300 transition-all duration-200 flex flex-col justify-between group">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Hoje</span>
-                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100/90 flex items-center justify-center">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100/90 flex items-center justify-center group-hover:scale-105 transition-transform">
                     <i class="fas fa-calendar-day text-base"></i>
                 </div>
             </div>
             <div>
-                <p class="text-2xl font-semibold tracking-tight text-slate-900" x-text="kpis.appointments_today">0</p>
+                <p class="text-2xl font-semibold tracking-tight text-slate-900" :class="loading ? 'animate-pulse text-slate-300' : ''" x-text="kpis.appointments_today">0</p>
                 <p class="text-xs text-slate-500 mt-1">Agendamentos hoje</p>
             </div>
-        </div>
+        </a>
 
         <!-- Pendentes -->
-        <div class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-amber-300 transition-all duration-200 flex flex-col justify-between">
+        <a href="/admin/appointments?status=pending" class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-amber-300 transition-all duration-200 flex flex-col justify-between group">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-xs font-semibold uppercase tracking-wider text-amber-600">Pendentes</span>
-                <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-100/90 flex items-center justify-center">
+                <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-100/90 flex items-center justify-center group-hover:scale-105 transition-transform">
                     <i class="fas fa-clock text-base"></i>
                 </div>
             </div>
             <div>
-                <p class="text-2xl font-semibold tracking-tight text-slate-900" x-text="kpis.appointments_pending">0</p>
+                <p class="text-2xl font-semibold tracking-tight text-slate-900" :class="loading ? 'animate-pulse text-slate-300' : ''" x-text="kpis.appointments_pending">0</p>
                 <p class="text-xs text-slate-500 mt-1">Aguardam ação</p>
             </div>
-        </div>
+        </a>
 
         <!-- Confirmados -->
-        <div class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-emerald-300 transition-all duration-200 flex flex-col justify-between">
+        <a href="/admin/appointments?status=confirmed" class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-emerald-300 transition-all duration-200 flex flex-col justify-between group">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-xs font-semibold uppercase tracking-wider text-emerald-600">Confirmados</span>
-                <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100/90 flex items-center justify-center">
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100/90 flex items-center justify-center group-hover:scale-105 transition-transform">
                     <i class="fas fa-check-circle text-base"></i>
                 </div>
             </div>
             <div>
-                <p class="text-2xl font-semibold tracking-tight text-slate-900" x-text="kpis.appointments_confirmed">0</p>
+                <p class="text-2xl font-semibold tracking-tight text-slate-900" :class="loading ? 'animate-pulse text-slate-300' : ''" x-text="kpis.appointments_confirmed">0</p>
                 <p class="text-xs text-slate-500 mt-1">Garantidos na agenda</p>
             </div>
-        </div>
+        </a>
 
         <!-- Receita Hoje -->
-        <div class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-purple-300 transition-all duration-200 flex flex-col justify-between">
+        <a href="/admin/payments" class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-purple-300 transition-all duration-200 flex flex-col justify-between group">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-xs font-semibold uppercase tracking-wider text-purple-600">Receita Hoje</span>
-                <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-100/90 flex items-center justify-center">
+                <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-100/90 flex items-center justify-center group-hover:scale-105 transition-transform">
                     <i class="fas fa-money-bill-wave text-base"></i>
                 </div>
             </div>
             <div>
-                <p class="text-xl font-semibold tracking-tight text-slate-900" x-text="formatCurrency(kpis.revenue_today_cents)">R$ 0,00</p>
+                <p class="text-xl font-semibold tracking-tight text-slate-900" :class="loading ? 'animate-pulse text-slate-300' : ''" x-text="formatCurrency(kpis.revenue_today_cents)">R$ 0,00</p>
                 <p class="text-xs text-slate-500 mt-1">Faturado no dia</p>
             </div>
-        </div>
+        </a>
 
         <!-- Receita Semana -->
-        <div class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-indigo-300 transition-all duration-200 flex flex-col justify-between">
+        <a href="/admin/payments" class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-indigo-300 transition-all duration-200 flex flex-col justify-between group">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-xs font-semibold uppercase tracking-wider text-indigo-600">Receita Semana</span>
-                <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100/90 flex items-center justify-center">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100/90 flex items-center justify-center group-hover:scale-105 transition-transform">
                     <i class="fas fa-chart-line text-base"></i>
                 </div>
             </div>
             <div>
-                <p class="text-xl font-semibold tracking-tight text-slate-900" x-text="formatCurrency(kpis.revenue_week_cents)">R$ 0,00</p>
+                <p class="text-xl font-semibold tracking-tight text-slate-900" :class="loading ? 'animate-pulse text-slate-300' : ''" x-text="formatCurrency(kpis.revenue_week_cents)">R$ 0,00</p>
                 <p class="text-xs text-slate-500 mt-1">Acumulado 7 dias</p>
             </div>
-        </div>
+        </a>
 
         <!-- Receita Mês -->
-        <div class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-pink-300 transition-all duration-200 flex flex-col justify-between">
+        <a href="/admin/payments" class="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 border border-slate-200/80 hover:border-pink-300 transition-all duration-200 flex flex-col justify-between group">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-xs font-semibold uppercase tracking-wider text-pink-600">Receita Mês</span>
-                <div class="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 border border-pink-100/90 flex items-center justify-center">
+                <div class="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 border border-pink-100/90 flex items-center justify-center group-hover:scale-105 transition-transform">
                     <i class="fas fa-calendar-alt text-base"></i>
                 </div>
             </div>
             <div>
-                <p class="text-xl font-semibold tracking-tight text-slate-900" x-text="formatCurrency(kpis.revenue_month_cents)">R$ 0,00</p>
+                <p class="text-xl font-semibold tracking-tight text-slate-900" :class="loading ? 'animate-pulse text-slate-300' : ''" x-text="formatCurrency(kpis.revenue_month_cents)">R$ 0,00</p>
                 <p class="text-xs text-slate-500 mt-1">Mês corrente</p>
             </div>
-        </div>
+        </a>
     </div>
 
     <!-- Second Row KPIs -->

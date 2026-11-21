@@ -48,6 +48,17 @@ class AdminContext:
     csrf_token: str | None = None
 
 
+def _populate_brand_name(request: Request, db: Session) -> None:
+    try:
+        from app.models.company_settings import CompanySettings
+
+        row = db.query(CompanySettings.company_name).first()
+        name = (row[0] if row and row[0] else "").strip()
+        request.state.brand_name = name or request.app.state.settings.app_name
+    except Exception:
+        request.state.brand_name = getattr(request.app.state.settings, "app_name", "RIA 360")
+
+
 def resolve_admin_context(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
@@ -57,6 +68,7 @@ def resolve_admin_context(
         expected = request.app.state.settings.admin_api_key
         if not hmac.compare_digest(x_admin_key.encode(), expected.encode()):
             raise HTTPException(status_code=403, detail="Admin access denied")
+        _populate_brand_name(request, db)
         return AdminContext(method="technical_key")
 
     session = request.session
@@ -77,6 +89,7 @@ def resolve_admin_context(
     if account is None or account.auth_version != auth_version:
         request.session.clear()
         return None
+    _populate_brand_name(request, db)
     return AdminContext(method="session", account=account, csrf_token=csrf_token)
 
 

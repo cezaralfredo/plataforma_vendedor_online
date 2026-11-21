@@ -509,6 +509,53 @@ async def api_update_settings(payload: CompanySettingsUpdate, db: Session = Depe
     return jsonable_encoder(CompanySettingsResponse.model_validate(settings))
 
 
+@router.post("/api/settings/test-ai", dependencies=[Depends(require_admin_mutation)])
+async def api_test_ai_settings(db: Session = Depends(get_db)):
+    """Testa conectividade da IA principal e da triagem TypeSafe Jev com as configurações salvas."""
+    from app.services.ai.providers.base import LLMMessage
+    from app.services.ai.providers.factory import get_llm_client
+    from app.services.triage_service import TriageService
+
+    company_settings = CompanySettingsService(db).get_or_create_default()
+
+    ai_result: dict[str, object] = {"ok": False, "message": "Chave de API não configurada."}
+    llm_client = get_llm_client(company_settings)
+    if llm_client is not None:
+        try:
+            resp = await llm_client.chat(
+                messages=[LLMMessage(role="user", content="Responda apenas: OK")],
+                temperature=0.0,
+                max_tokens=10,
+            )
+            ai_result = {
+                "ok": bool(resp and (resp.content or "").strip()),
+                "message": f"Conectado ({company_settings.ai_provider} / {company_settings.ai_model})",
+            }
+        except Exception as exc:
+            ai_result = {"ok": False, "message": f"Falha na IA ({company_settings.ai_provider}): {exc}"}
+
+    jev_result: dict[str, object]
+    if not company_settings.triage_enabled:
+        jev_result = {"ok": True, "skipped": True, "message": "Triagem Jev desativada no painel."}
+    else:
+        triage = TriageService(company_settings=company_settings)
+        enabled, api_key, model = triage._resolve_triage_config()
+        if not enabled or not api_key:
+            jev_result = {"ok": False, "message": "Chave OpenRouter para o Jev não configurada."}
+        else:
+            res = await triage.evaluate("Olá, tudo bem?")
+            if res.is_fallback:
+                jev_result = {"ok": False, "message": f"Jev ({model}) retornou fallback — verifique a chave OpenRouter."}
+            else:
+                jev_result = {"ok": True, "message": f"Jev ativo ({res.model_used}) — intenção: {res.intent}"}
+
+    return {
+        "success": bool(ai_result.get("ok")) and bool(jev_result.get("ok")),
+        "ai": ai_result,
+        "jev": jev_result,
+    }
+
+
 @router.get("/api/whatsapp/qr", dependencies=[Depends(require_admin)])
 async def api_whatsapp_qr(db: Session = Depends(get_db)):
     from app.services.whatsapp.gateway import WhatsAppGatewayService

@@ -411,7 +411,15 @@ function whatsappConnectionPage() {
         },
 
         async logoutSession() {
-            if (!confirm('Deseja realmente desconectar o WhatsApp desta empresa?')) return;
+            const confirmed = window.adminConfirm
+                ? (await window.adminConfirm({
+                    title: 'Desconectar WhatsApp',
+                    message: 'Deseja realmente desconectar o WhatsApp desta empresa? Será necessário escanear um novo QR Code para reconectar.',
+                    confirmLabel: 'Desconectar',
+                    destructive: true
+                })).confirmed
+                : confirm('Deseja realmente desconectar o WhatsApp desta empresa?');
+            if (!confirmed) return;
             this.loading = true;
             try {
                 const res = await adminFetch('/admin/api/whatsapp/logout-session', { method: 'POST' });
