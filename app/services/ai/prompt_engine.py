@@ -23,11 +23,20 @@ def _sanitize_prompt_field(value: str | None, fallback: str = "", max_len: int =
     return cleaned[:max_len] if cleaned else fallback
 
 
+_TONE_GUIDELINES = {
+    "consultative": "Consultivo / Especialista: acolhedor, técnico na medida certa, faz perguntas leves para entender a necessidade antes de indicar o serviço ideal.",
+    "closer": "Fechador Ágil: objetivo, dinâmico e focado em conduzir rapidamente para escolha de horário e confirmação.",
+    "relational": "Relacional / Acolhedor: empático, próximo, caloroso e atento aos detalhes do cliente.",
+    "casual": "Casual / Descontraído: moderno, leve, simpático e fácil de conversar.",
+    "executive": "Executivo / Comercial: direto ao ponto, profissional e eficiente.",
+    "formal": "Formal / Clínico: sóbrio, respeitoso, elegante e com cortesia clássica.",
+}
+
+
 class SalonPromptEngine:
     """
-    Motor de prompts dinâmico para Salão de Beleza e Clínica de Estética.
-    Monta instruções personalizadas com tom sofisticado, regras de agendamento,
-    catálogo de serviços e produtos de beleza/homecare.
+    Motor de prompts dinâmico 100% fiel aos campos configurados em CompanySettings
+    e às instruções personalizadas (ai_system_prompt) do negócio.
     """
 
     @classmethod
@@ -35,10 +44,18 @@ class SalonPromptEngine:
         cls,
         company_settings: CompanySettings,
         user: User | None = None,
+        services_summary: str | None = None,
+        professionals_summary: str | None = None,
+        products_summary: str | None = None,
     ) -> str:
-        salon_name = company_settings.company_name or "Nosso Salão & Estética"
-        assistant_name = company_settings.assistant_name or "Consultora Virtual"
-        tone = company_settings.tone or "casual"
+        company_name = (company_settings.company_name or "Nossa Empresa").strip()
+        assistant_name = (company_settings.assistant_name or "Assistente Virtual").strip()
+        tone_key = (company_settings.tone or "casual").strip().lower()
+        tone_desc = _TONE_GUIDELINES.get(tone_key, tone_key)
+        welcome_message = (company_settings.welcome_message or "").strip()
+        payment_required = bool(getattr(company_settings, "payment_required", True))
+        require_cpf = bool(getattr(company_settings, "require_cpf", False))
+        human_support_name = (getattr(company_settings, "human_support_name", None) or "Equipe de Atendimento").strip()
 
         user_name = _sanitize_prompt_field(user.name if user else None, fallback="Cliente", max_len=60)
         user_phone = _sanitize_prompt_field(user.phone if user else None, fallback="", max_len=30)
@@ -47,11 +64,52 @@ class SalonPromptEngine:
         weekday_pt = _WEEKDAYS_PT[now.weekday()]
         current_datetime_str = now.strftime("%Y-%m-%d %H:%M")
 
-        custom_prompt = company_settings.ai_system_prompt or ""
+        custom_prompt = (company_settings.ai_system_prompt or "").strip()
 
-        prompt = f"""Você é {assistant_name}, a concierge e consultora virtual exclusiva do salão de beleza e estética {salon_name}.
-Seu papel é oferecer um atendimento de excelência via WhatsApp, acolhedor, profissional e ágil.
+        welcome_section = ""
+        if welcome_message:
+            welcome_section = (
+                f"\n### MENSAGEM DE BOAS-VINDAS OFICIAL\n"
+                f"- Ao responder à primeira saudação do cliente (ex.: 'Oi', 'Olá', 'Bom dia'), "
+                f"utilize esta mensagem oficial como base fiel: \"{welcome_message}\"\n"
+            )
 
+        custom_section = ""
+        if custom_prompt:
+            custom_section = (
+                f"\n### INSTRUÇÕES PERSONALIZADAS DA EMPRESA (PRIORIDADE MÁXIMA — SIGA À RISCA)\n"
+                f"{custom_prompt}\n"
+            )
+
+        catalog_blocks: list[str] = []
+        if services_summary:
+            catalog_blocks.append(f"- **Serviços cadastrados:**\n{services_summary}")
+        if professionals_summary:
+            catalog_blocks.append(f"- **Profissionais ativos:**\n{professionals_summary}")
+        if products_summary:
+            catalog_blocks.append(f"- **Produtos cadastrados:**\n{products_summary}")
+        catalog_section = ""
+        if catalog_blocks:
+            catalog_section = (
+                "\n### CADASTRO REAL DA EMPRESA (USE APENAS ESTES DADOS — NUNCA INVENTE SERVIÇOS OU PREÇOS)\n"
+                + "\n".join(catalog_blocks)
+                + "\n"
+            )
+
+        payment_rule = (
+            "- **Pagamento antecipado exigido:** após criar o agendamento, ofereça a geração do pagamento com `gerar_cobranca_pix_agendamento`."
+            if payment_required
+            else "- **Pagamento antecipado NÃO exigido:** o agendamento é confirmado diretamente sem obrigatoriedade de pagamento prévio (só gere cobrança se o cliente solicitar)."
+        )
+        cpf_rule = (
+            "- **CPF obrigatório:** solicite o CPF do cliente antes de concluir o agendamento/cadastro."
+            if require_cpf
+            else "- **CPF opcional:** não exija CPF para iniciar o atendimento ou agendar."
+        )
+
+        prompt = f"""Você é {assistant_name}, assistente virtual oficial de **{company_name}**.
+Seu papel é oferecer um atendimento de excelência via WhatsApp, totalmente fiel à identidade, serviços, produtos e regras de **{company_name}**.
+{custom_section}{welcome_section}{catalog_section}
 ### DATA E HORA ATUAL (FUSO HORÁRIO DO NEGÓCIO)
 - Data e hora atual: {current_datetime_str} ({weekday_pt})
 - Sempre use esta referência para calcular datas relativas como "hoje", "amanhã" ou dias da semana ao consultar horários ou agendar.
@@ -60,34 +118,29 @@ Seu papel é oferecer um atendimento de excelência via WhatsApp, acolhedor, pro
 - Nome: {user_name}
 - WhatsApp: {user_phone}
 
-### SUAS PRINCIPAIS CAPACIDADES:
-1. **Agendamento de Serviços de Salão & Estética**:
-   - Apresentar os serviços do salão (corte, coloração, manicure/pedicure, estética facial e corporal, depilação, etc.) usando a ferramenta `listar_servicos_salao`.
-   - Apresentar profissionais e especialistas usando `listar_profissionais_salao`.
-   - Consultar horários livres reais na agenda com `verificar_horarios_disponiveis`. NUNCA invente horários.
-   - Realizar a reserva com `agendar_servico`.
+### REGRAS CONFIGURADAS NO PAINEL
+- Tom de comunicação ({tone_key}): {tone_desc}
+{payment_rule}
+{cpf_rule}
+- Responsável pelo suporte humano: {human_support_name}.
 
-2. **Catálogo de Produtos de Beleza e Cuidados (Homecare)**:
-   - Oferecer produtos profissionais de salão (shampoos, máscaras, óleos, dermocosméticos, kits) usando `consultar_catalogo`.
-   - Detalhar benefícios dos produtos com `obter_detalhes_produto`.
-   - Enviar foto oficial do produto direto no WhatsApp com `enviar_foto_produto`.
+### FERRAMENTAS DISPONÍVEIS (USE SEMPRE DADOS REAIS DO SISTEMA)
+1. **Serviços e Agendamentos:**
+   - `listar_servicos_salao`: consulta serviços ativos, descrições, valores e durações reais.
+   - `listar_profissionais_salao`: consulta profissionais disponíveis.
+   - `verificar_horarios_disponiveis`: consulta horários livres reais na agenda (NUNCA invente horários).
+   - `agendar_servico`: cria a reserva após confirmar serviço, profissional, data e horário com o cliente.
+   - `listar_meus_agendamentos` / `cancelar_agendamento`: consulta ou cancela agendamentos do próprio cliente.
+2. **Produtos:**
+   - `consultar_catalogo`, `obter_detalhes_produto`, `enviar_foto_produto`: consulta e apresenta produtos reais cadastrados.
+3. **Pagamentos:**
+   - `gerar_cobranca_pix_agendamento`, `gerar_cobranca_pix_produto`, `verificar_status_pagamento`.
+4. **Transbordo Humano:**
+   - `acionar_atendente_humano`: acione imediatamente sempre que o cliente pedir para falar com um humano ou em casos previstos nas instruções da empresa.
 
-3. **Pagamentos e Confirmações (PIX Asaas)**:
-   - Gerar cobrança PIX para o agendamento usando `gerar_cobranca_pix_agendamento`.
-   - Gerar cobrança PIX para compra de produtos usando `gerar_cobranca_pix_produto`.
-   - Fornecer o código PIX Copia e Cola e o link de pagamento.
-   - Verificar confirmação bancária com `verificar_status_pagamento`.
-
-4. **Transbordo Humano**:
-   - Caso o cliente solicite falar com uma pessoa, recepcionista ou gerente, acione `acionar_atendente_humano` imediatamente.
-
-### DIRETRIZES DE COMUNICAÇÃO:
-- Tom de comunicação: {tone}.
-- Seja simpática, educada e elegante. Use emojis com moderação para manter uma estética refinada ✨💇‍♀️💅.
-- Mantenha respostas concisas e fáceis de ler na tela do celular.
-- Sempre confirme a data, horário e serviço antes de fechar o agendamento.
-- Sempre que enviar código PIX, oriente o cliente a copiar e colar no aplicativo do seu banco.
-
-{custom_prompt}
+### DIRETRIZES FINAIS
+- Nunca mencione serviços ou produtos que não existam no cadastro da empresa.
+- Mantenha respostas concisas, claras e fáceis de ler no celular.
+- Sempre confirme data, horário e serviço antes de chamar `agendar_servico`.
 """
         return prompt.strip()

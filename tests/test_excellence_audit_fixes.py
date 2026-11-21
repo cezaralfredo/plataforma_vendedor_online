@@ -434,3 +434,53 @@ def test_waha_ignores_status_broadcast_groups_old_history_and_empty_media():
     assert parsed is not None
     assert parsed.sender_phone == "5585999996666"
     assert parsed.text == "Olá, quero agendar Botox"
+
+
+def test_prompt_engine_reflects_company_fields_without_salon_hardcoding():
+    settings = CompanySettings(
+        company_name="Dra Larissa",
+        assistant_name="Concierge Larissa",
+        tone="consultative",
+        welcome_message="Olá, bem vindo a nossa clínica, como posso ajudar?",
+        payment_required=False,
+        require_cpf=True,
+        ai_system_prompt="Especialidade exclusiva em Harmonização Facial.",
+    )
+    user = User(name="Carlos", phone="5585999990000")
+    prompt = SalonPromptEngine.build_system_prompt(
+        settings,
+        user=user,
+        services_summary="  • #1 Botox — R$ 950.00 (60 min)",
+        professionals_summary="  • #1 Dra. Larissa Almeida",
+    )
+    assert "Dra Larissa" in prompt
+    assert "Olá, bem vindo a nossa clínica, como posso ajudar?" in prompt
+    assert "Especialidade exclusiva em Harmonização Facial." in prompt
+    assert "Botox — R$ 950.00" in prompt
+    assert "Dra. Larissa Almeida" in prompt
+    assert "CPF obrigatório" in prompt
+    assert "Pagamento antecipado NÃO exigido" in prompt
+    assert "manicure" not in prompt.lower()
+    assert "shampoos" not in prompt.lower()
+
+
+def test_cross_worker_inbound_dedup_and_bot_echo_detection(db_session: Session):
+    from app.services.seller_ai_service import SellerAIService
+    from app.services.whatsapp.gateway import WhatsAppGatewayService
+    from app.services.whatsapp.tracker import SentMessageTracker
+
+    SentMessageTracker.get_instance().clear()
+    svc = SellerAIService(db_session)
+
+    # Worker A reivindica mensagem inbound
+    assert svc._claim_inbound_event("waha", "msg_cross_worker_1") is True
+    # Simula Worker B (memória limpa!) tentando processar o mesmo webhook duplicado
+    SentMessageTracker.get_instance().clear()
+    assert svc._claim_inbound_event("waha", "msg_cross_worker_1") is False
+
+    # Worker A envia mensagem pelo bot e persiste wa_out no banco
+    gw = WhatsAppGatewayService(db_session)
+    gw._persist_sent_message_id("out_cross_worker_99")
+    # Simula Worker B (memória limpa!) recebendo eco fromMe: true
+    SentMessageTracker.get_instance().clear()
+    assert svc.is_bot_message("out_cross_worker_99", "5585999990000", "Qualquer eco") is True

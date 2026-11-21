@@ -68,6 +68,25 @@ class WhatsAppGatewayService:
                 api_key=self.settings.evolution_api_key,
             )
 
+    def _persist_sent_message_id(self, message_id: str) -> None:
+        """Persiste o ID enviado em webhook_events para detecção de eco entre múltiplos workers."""
+        if not message_id or not self.db:
+            return
+        from sqlalchemy.exc import IntegrityError
+
+        from app.models.webhook_event import WebhookEvent
+
+        event_key = f"wa_out:{str(message_id).strip()}"[:120]
+        try:
+            with self.db.begin_nested():
+                self.db.add(WebhookEvent(provider_event_id=event_key))
+                self.db.flush()
+            self.db.commit()
+        except IntegrityError:
+            pass
+        except Exception as exc:
+            logger.debug("Não foi possível persistir wa_out event (%s): %s", event_key, exc)
+
     async def send_text(
         self, phone: str, text: str, provider_name: str | None = None
     ) -> SendMessageResult:
@@ -75,6 +94,7 @@ class WhatsAppGatewayService:
         result = await provider.send_text(phone, text)
         if result.success and result.message_id:
             SentMessageTracker.get_instance().record(result.message_id)
+            self._persist_sent_message_id(result.message_id)
         return result
 
     async def send_image(
@@ -98,6 +118,7 @@ class WhatsAppGatewayService:
         result = await provider.send_image(phone, image_url, caption)
         if result.success and result.message_id:
             SentMessageTracker.get_instance().record(result.message_id)
+            self._persist_sent_message_id(result.message_id)
         return result
 
     def parse_inbound(

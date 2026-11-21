@@ -80,21 +80,57 @@ class SellerAIService:
             .all()
         )[::-1]
 
-    def is_bot_message(self, message_id: str, phone: str, text: str) -> bool:
-        """Verifica se a mensagem com fromMe: true foi disparada pela própria API ou por humano no WhatsApp Business."""
-        from app.services.whatsapp.tracker import SentMessageTracker
-        if SentMessageTracker.get_instance().is_bot_message(message_id):
+    def _claim_inbound_event(self, provider: str | None, message_id: str | None) -> bool:
+        """Deduplicação persistente cross-worker via webhook_events. Retorna True se deve processar."""
+        if not message_id:
+            return True
+        if SentMessageTracker.get_instance().is_duplicate_inbound(message_id):
+            return False
+        from sqlalchemy.exc import IntegrityError
+
+        from app.models.webhook_event import WebhookEvent
+
+        event_key = f"wa_in:{provider or 'wa'}:{str(message_id).strip()}"[:120]
+        try:
+            with self.db.begin_nested():
+                self.db.add(WebhookEvent(provider_event_id=event_key))
+                self.db.flush()
+            self.db.commit()
+            return True
+        except IntegrityError:
+            return False
+        except Exception as exc:
+            logger.debug("Fallback na deduplicação persistente (%s): %s", event_key, exc)
             return True
 
-        recent = (
-            self.db.query(ChatMessage)
-            .filter(ChatMessage.phone == phone, ChatMessage.role == "assistant")
-            .order_by(ChatMessage.created_at.desc())
-            .first()
-        )
-        if recent and recent.content and text:
-            if recent.content.strip() == text.strip():
+    def is_bot_message(self, message_id: str, phone: str, text: str) -> bool:
+        """Verifica em memória E no banco (multi-worker) se o eco fromMe veio do próprio bot."""
+        if message_id:
+            if SentMessageTracker.get_instance().is_bot_message(message_id):
                 return True
+            from app.models.webhook_event import WebhookEvent
+
+            event_key = f"wa_out:{str(message_id).strip()}"[:120]
+            if (
+                self.db.query(WebhookEvent.id)
+                .filter(WebhookEvent.provider_event_id == event_key)
+                .first()
+                is not None
+            ):
+                return True
+
+        cleaned_text = (text or "").strip()
+        if cleaned_text:
+            recent_msgs = (
+                self.db.query(ChatMessage)
+                .filter(ChatMessage.phone == phone, ChatMessage.role == "assistant")
+                .order_by(ChatMessage.created_at.desc())
+                .limit(5)
+                .all()
+            )
+            for recent in recent_msgs:
+                if recent.content and recent.content.strip() == cleaned_text:
+                    return True
         return False
 
     async def handle_inbound_message(self, inbound: InboundMessage) -> str:
@@ -114,10 +150,11 @@ class SellerAIService:
             logger.debug("Mensagem ignorada por filtro de segurança (phone=%s, text_len=%d).", phone, len(text))
             return ""
 
-        # Deduplicação de webhooks repetidos (ex: retries ou eventos duplicados)
-        if inbound.message_id and SentMessageTracker.get_instance().is_duplicate_inbound(inbound.message_id):
-            logger.debug("Mensagem %s ignorada: já processada recentemente.", inbound.message_id)
-            return ""
+        # Deduplicação cross-worker apenas para mensagens de clientes (ecos fromMe têm lógica própria abaixo)
+        if not inbound.is_from_me and inbound.message_id:
+            if not self._claim_inbound_event(inbound.provider, inbound.message_id):
+                logger.debug("Mensagem %s ignorada: já processada por este ou outro worker.", inbound.message_id)
+                return ""
 
         user = self._get_or_create_user(phone, inbound.sender_name)
 
@@ -275,17 +312,15 @@ class SellerAIService:
             if triage_result.recommended_action == "fast_greeting":
                 history = self._get_recent_history(phone)
                 if len(history) <= 1:
-                    salon_name = self.company_settings.company_name or "Nosso Salão & Estética"
+                    company_name = self.company_settings.company_name or "Nossa Empresa"
+                    assistant_name = self.company_settings.assistant_name or "Assistente"
                     welcome = self.company_settings.welcome_message
                     if welcome and welcome.strip():
                         response_text = welcome.strip()
                     else:
                         response_text = (
                             f"Olá, {user.name or 'seja muito bem-vindo(a)'}! ✨\n\n"
-                            f"Sou a consultora virtual do *{salon_name}*. Como posso te ajudar hoje?\n"
-                            "• Agendamento de Serviços (Cabelo, Unhas, Estética)\n"
-                            "• Linha de Produtos Profissionais\n"
-                            "• Consultar Horários e Valores"
+                            f"Sou {assistant_name} de *{company_name}*. Como posso te ajudar hoje?"
                         )
                     self._record_chat(phone, "assistant", response_text, inbound.provider)
                     try:

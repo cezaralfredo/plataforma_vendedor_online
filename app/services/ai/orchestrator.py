@@ -72,9 +72,38 @@ class SalonAIOrchestrator:
                 self._all_tools.append(tool_def)
 
     def _build_system_prompt(self) -> str:
+        from app.models.product import Product
+        from app.models.professional import Professional
+        from app.models.service import Service
+
+        services_summary = None
+        professionals_summary = None
+        products_summary = None
+        try:
+            services = self.db.query(Service).filter(Service.active.is_(True)).limit(30).all()
+            if services:
+                services_summary = "\n".join(
+                    f"  • #{s.id} {s.name} — R$ {(s.price_cents or 0) / 100:.2f} ({s.duration_minutes} min)"
+                    for s in services
+                )
+            professionals = self.db.query(Professional).filter(Professional.active.is_(True)).limit(20).all()
+            if professionals:
+                professionals_summary = "\n".join(f"  • #{p.id} {p.name}" for p in professionals)
+            products = self.db.query(Product).filter(Product.active.is_(True)).limit(30).all()
+            if products:
+                products_summary = "\n".join(
+                    f"  • #{p.id} {p.name} — R$ {(p.price_cents or 0) / 100:.2f} (estoque: {p.stock_quantity})"
+                    for p in products
+                )
+        except Exception as exc:
+            logger.debug("Não foi possível carregar resumo de catálogo para o prompt: %s", exc)
+
         return SalonPromptEngine.build_system_prompt(
             company_settings=self.company_settings,
             user=self.user,
+            services_summary=services_summary,
+            professionals_summary=professionals_summary,
+            products_summary=products_summary,
         )
 
     async def _execute_tool_call(self, tool_call: ToolCall) -> str:
@@ -151,28 +180,31 @@ class SalonAIOrchestrator:
         return "Aqui estão as informações solicitadas! Se precisar de mais algum horário ou produto, é só me avisar. ✨"
 
     def _build_deterministic_fallback(self, user_text: str) -> str:
-        salon_name = self.company_settings.company_name or "Nosso Salão & Estética"
+        company_name = self.company_settings.company_name or "Nossa Empresa"
+        welcome = (self.company_settings.welcome_message or "").strip()
         lowered = user_text.lower()
 
         if any(w in lowered for w in ["horario", "horário", "agendar", "marcar", "vaga", "dia"]):
             return (
-                f"Olá! ✨ No *{salon_name}*, oferecemos serviços completos de Cabelo, Manicure, Pedicure e Estética!\n\n"
-                "Para consultar nossos horários livres e agendar, por favor nos informe qual serviço você deseja "
-                "ou me diga um dia de sua preferência! 💇‍♀️💅"
+                f"Olá! ✨ Na *{company_name}*, posso consultar nossos horários disponíveis e agendar para você.\n\n"
+                "Por favor, informe qual serviço você deseja e o dia/período de sua preferência!"
             )
 
-        if any(w in lowered for w in ["produto", "shampoo", "creme", "mascara", "máscara", "oleo", "óleo"]):
+        if any(w in lowered for w in ["produto", "comprar", "catalogo", "catálogo"]):
             return (
-                f"Temos uma linha completa de produtos profissionais e homecare no *{salon_name}*! ✨\n\n"
-                "Você pode consultar nossos itens ou nos dizer o que você está procurando para seus cuidados diários!"
+                f"Temos produtos disponíveis em *{company_name}*! ✨\n\n"
+                "Me diga qual produto você está procurando para que eu verifique os detalhes e valores para você."
             )
+
+        if welcome:
+            return welcome
 
         return (
-            f"Olá! Seja muito bem-vindo(a) ao *{salon_name}*! ✨\n\n"
-            "Sou sua consultora virtual. Como posso te ajudar hoje?\n"
-            "• Agendamento de Serviços (Cabelo, Unhas, Estética)\n"
-            "• Linha de Produtos Profissionais\n"
-            "• Informações sobre Horários e Preços"
+            f"Olá! Seja muito bem-vindo(a) a *{company_name}*! ✨\n\n"
+            "Como posso te ajudar hoje?\n"
+            "• Agendamento de Serviços\n"
+            "• Produtos e Catálogo\n"
+            "• Informações sobre Horários e Valores"
         )
 
 
