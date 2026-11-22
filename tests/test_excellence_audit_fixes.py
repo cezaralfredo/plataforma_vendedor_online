@@ -484,3 +484,16 @@ def test_cross_worker_inbound_dedup_and_bot_echo_detection(db_session: Session):
     # Simula Worker B (memória limpa!) recebendo eco fromMe: true
     SentMessageTracker.get_instance().clear()
     assert svc.is_bot_message("out_cross_worker_99", "5585999990000", "Qualquer eco") is True
+
+
+@pytest.mark.asyncio
+async def test_service_subagent_verificar_horarios_without_prof_id_and_weekday_hint(db_session: Session):
+    entities = seed_data(db_session)
+    subagent = ServiceSubagent(db=db_session, user=entities["user"])
+
+    # Chama SEM profissional_id (antes quebrava com AttributeError: list_professionals)
+    raw = await subagent.execute_tool("verificar_horarios_disponiveis", {"data": "2026-11-23"})
+    parsed = json.loads(raw)
+    assert parsed["status"] == "sucesso"
+    assert "disponibilidade_por_profissional" in parsed
+    assert "erro" not in parsed

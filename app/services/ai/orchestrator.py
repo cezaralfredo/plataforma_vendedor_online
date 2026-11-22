@@ -177,7 +177,19 @@ class SalonAIOrchestrator:
                     )
                 )
 
-        return "Aqui estão as informações solicitadas! Se precisar de mais algum horário ou produto, é só me avisar. ✨"
+        # Se atingiu max_iterations com tool_calls, pede uma resposta final limpa sem ferramentas
+        try:
+            final_response = await self.llm_client.chat(
+                messages=messages,
+                tools=None,
+                temperature=float(self.company_settings.ai_temperature or 0.3),
+            )
+            if final_response and final_response.content and final_response.content.strip():
+                return final_response.content.strip()
+        except Exception as exc:
+            logger.warning("Falha ao sintetizar resposta final após max_iterations: %s", exc)
+
+        return "Não consegui concluir a consulta automática de horários agora. Deseja que eu transfira você para nossa equipe confirmar seu horário?"
 
     def _build_deterministic_fallback(self, user_text: str) -> str:
         company_name = self.company_settings.company_name or "Nossa Empresa"

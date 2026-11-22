@@ -137,6 +137,35 @@ class ServiceSubagent(BaseSubagent):
             ),
         ]
 
+    def _get_configured_weekdays(self, professional_id: int | None = None) -> list[str]:
+        from app.models.availability import Availability
+
+        weekday_names = [
+            "Segunda-feira",
+            "Terça-feira",
+            "Quarta-feira",
+            "Quinta-feira",
+            "Sexta-feira",
+            "Sábado",
+            "Domingo",
+        ]
+        query = self.db.query(Availability)
+        if professional_id is not None:
+            query = query.filter(Availability.professional_id == professional_id)
+        rows = query.order_by(Availability.day_of_week, Availability.start_time).all()
+        formatted: list[str] = []
+        for av in rows:
+            if av.day_of_week is not None and 0 <= av.day_of_week < 7:
+                day_label = weekday_names[av.day_of_week]
+            elif getattr(av, "specific_date", None) is not None:
+                day_label = av.specific_date.strftime("%d/%m/%Y")
+            else:
+                continue
+            start_s = av.start_time.strftime("%H:%M") if hasattr(av.start_time, "strftime") else str(av.start_time)
+            end_s = av.end_time.strftime("%H:%M") if hasattr(av.end_time, "strftime") else str(av.end_time)
+            formatted.append(f"{day_label} ({start_s} às {end_s})")
+        return formatted
+
     async def execute_tool(self, tool_name: str, arguments: dict[str, Any]) -> str:
         try:
             if tool_name == "listar_servicos_salao":
@@ -180,11 +209,17 @@ class ServiceSubagent(BaseSubagent):
                     res.append({
                         "id": p.id,
                         "nome": p.name,
-                        "especialidade": p.bio or "Profissional da Beleza",
+                        "especialidade": p.bio or "Especialista",
                         "servicos_ofertados": servicos_nomes,
                     })
 
-                return json.dumps({"status": "sucesso", "total": len(res), "profissionais": res}, ensure_ascii=False)
+                payload_profs: dict[str, Any] = {"status": "sucesso", "total": len(res), "profissionais": res}
+                if servico_id and not res:
+                    payload_profs["aviso"] = (
+                        "Nenhum profissional ativo está vinculado a este serviço no cadastro ainda. "
+                        "Informe gentilmente ao cliente e ofereça transferir para o atendimento humano."
+                    )
+                return json.dumps(payload_profs, ensure_ascii=False)
 
             elif tool_name == "verificar_horarios_disponiveis":
                 data_str = arguments.get("data")
@@ -200,16 +235,26 @@ class ServiceSubagent(BaseSubagent):
                         date_str=data_str,
                         service_id=int(serv_id) if serv_id else None,
                     )
-                    return json.dumps({
+                    response_payload: dict[str, Any] = {
                         "status": "sucesso",
                         "data": data_str,
-                        "profissional_id": prof_id,
+                        "profissional_id": int(prof_id),
                         "horarios_disponiveis": slots,
-                    }, ensure_ascii=False)
+                    }
+                    if not slots:
+                        configured_days = self._get_configured_weekdays(professional_id=int(prof_id))
+                        if not configured_days:
+                            response_payload["aviso"] = (
+                                "Este profissional ainda não possui grade de horários configurada na agenda. "
+                                "Ofereça transferir para o atendimento humano para confirmar o horário."
+                            )
+                        else:
+                            response_payload["dias_atendimento_configurados"] = configured_days
+                    return json.dumps(response_payload, ensure_ascii=False)
                 else:
-                    # Se não informou profissional, busca o primeiro ativo ou todos
-                    profs = self.professional_service.list_professionals(active_only=True)
-                    all_avail = {}
+                    # Se não informou profissional, consulta todos os profissionais ativos
+                    profs = self.professional_service.list(active_only=True)
+                    all_avail: dict[str, Any] = {}
                     for p in profs:
                         s_slots = self.availability_service.get_available_slots(
                             professional_id=p.id,
@@ -219,11 +264,21 @@ class ServiceSubagent(BaseSubagent):
                         if s_slots:
                             all_avail[p.name] = {"profissional_id": p.id, "horarios": s_slots}
 
-                    return json.dumps({
+                    response_payload = {
                         "status": "sucesso",
                         "data": data_str,
                         "disponibilidade_por_profissional": all_avail,
-                    }, ensure_ascii=False)
+                    }
+                    if not all_avail:
+                        configured_days = self._get_configured_weekdays()
+                        if not configured_days:
+                            response_payload["aviso"] = (
+                                "A agenda de horários dos profissionais ainda não foi configurada no sistema. "
+                                "Informe gentilmente ao cliente e ofereça transferir para o atendimento humano."
+                            )
+                        else:
+                            response_payload["dias_atendimento_configurados"] = configured_days
+                    return json.dumps(response_payload, ensure_ascii=False)
 
             elif tool_name == "agendar_servico":
                 if not self.user:
