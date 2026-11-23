@@ -519,3 +519,25 @@ async def test_create_charge_direct_pix_sets_created_at_and_updated_at(db_sessio
     assert payment.created_at is not None
     assert payment.updated_at is not None
     assert payment.invoice_url is not None and payment.invoice_url.startswith("000201")
+
+
+@pytest.mark.asyncio
+async def test_client_name_prompt_and_atualizar_dados_cliente_tool(db_session: Session):
+    cs = CompanySettings(company_name="Dra Larissa")
+    generic_user = User(name="Cliente", phone="5585999997777", whatsapp_number="5585999997777")
+    db_session.add_all([cs, generic_user])
+    db_session.commit()
+
+    prompt_missing = SalonPromptEngine.build_system_prompt(cs, user=generic_user)
+    assert "PERGUNTE o nome completo do cliente" in prompt_missing
+
+    subagent = ServiceSubagent(db=db_session, user=generic_user)
+    raw = await subagent.execute_tool("atualizar_dados_cliente", {"nome": "Izabel Alves"})
+    parsed = json.loads(raw)
+    assert parsed["status"] == "sucesso"
+    db_session.refresh(generic_user)
+    assert generic_user.name == "Izabel Alves"
+
+    prompt_known = SalonPromptEngine.build_system_prompt(cs, user=generic_user)
+    assert "PERGUNTE o nome completo do cliente" not in prompt_known
+    assert "Izabel Alves" in prompt_known

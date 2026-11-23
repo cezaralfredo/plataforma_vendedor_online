@@ -264,7 +264,9 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
             "Atendente"
             if is_from_me
             else (
-                data_block.get("notifyName")
+                data_block.get("pushName")
+                or data_block.get("notifyName")
+                or msg_data.get("pushName")
                 or msg_data.get("notifyName")
                 or "Cliente"
             )

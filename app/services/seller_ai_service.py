@@ -42,8 +42,12 @@ class SellerAIService:
 
     def _get_or_create_user(self, phone: str, name: str | None = None) -> User:
         user = self.user_service.find_by_phone(phone)
+        clean_incoming_name = (name or "").strip()
+        generic_names = {"", "cliente", "atendente", "usuário", "usuario"}
+        is_valid_incoming = bool(clean_incoming_name) and clean_incoming_name.lower() not in generic_names and not clean_incoming_name.isdigit()
+
         if not user:
-            clean_name = (name or "Cliente").strip() or "Cliente"
+            clean_name = clean_incoming_name if is_valid_incoming else "Cliente"
             try:
                 user = self.user_service.create(
                     UserCreate(
@@ -56,6 +60,13 @@ class SellerAIService:
                 self.db.rollback()
                 logger.warning("Erro ao cadastrar novo cliente via WhatsApp: %s", exc)
                 user = self.user_service.find_by_phone(phone)
+        elif is_valid_incoming and ((user.name or "").strip().lower() in generic_names or (user.name or "").strip().isdigit()):
+            try:
+                user.name = clean_incoming_name[:120]
+                self.db.commit()
+                self.db.refresh(user)
+            except Exception:
+                self.db.rollback()
         if user is None:
             raise RuntimeError("Não foi possível localizar ou cadastrar o cliente.")
         return user

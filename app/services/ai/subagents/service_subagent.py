@@ -105,12 +105,38 @@ class ServiceSubagent(BaseSubagent):
                             "type": "string",
                             "description": "Horário de início no formato ISO (ex: '2026-10-25T14:00:00') ou 'AAAA-MM-DD HH:MM'.",
                         },
+                        "nome_cliente": {
+                            "type": "string",
+                            "description": "Nome completo informado pelo cliente (sempre passe aqui se o cliente acabou de informar o nome).",
+                        },
                         "observacoes": {
                             "type": "string",
                             "description": "Observações adicionais ou preferências informadas pelo cliente.",
                         },
                     },
                     "required": ["servico_id", "profissional_id", "horario_inicio"],
+                },
+            ),
+            ToolDefinition(
+                name="atualizar_dados_cliente",
+                description="Salva ou atualiza o nome completo, CPF ou e-mail do cliente atual no cadastro.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "nome": {
+                            "type": "string",
+                            "description": "Nome completo do cliente.",
+                        },
+                        "cpf_cnpj": {
+                            "type": "string",
+                            "description": "CPF ou CNPJ do cliente (opcional).",
+                        },
+                        "email": {
+                            "type": "string",
+                            "description": "E-mail do cliente (opcional).",
+                        },
+                    },
+                    "required": ["nome"],
                 },
             ),
             ToolDefinition(
@@ -280,9 +306,37 @@ class ServiceSubagent(BaseSubagent):
                             response_payload["dias_atendimento_configurados"] = configured_days
                     return json.dumps(response_payload, ensure_ascii=False)
 
+            elif tool_name == "atualizar_dados_cliente":
+                if not self.user:
+                    return json.dumps({"erro": "Cliente não identificado."}, ensure_ascii=False)
+                nome = str(arguments.get("nome") or "").strip()
+                if not nome or nome.lower() in {"cliente", "atendente"}:
+                    return json.dumps({"erro": "Informe um nome válido para atualizar o cadastro."}, ensure_ascii=False)
+                self.user.name = nome[:120]
+                if arguments.get("cpf_cnpj"):
+                    self.user.cpf_cnpj = str(arguments["cpf_cnpj"]).strip()[:20]
+                if arguments.get("email"):
+                    self.user.email = str(arguments["email"]).strip()[:120]
+                self.db.commit()
+                self.db.refresh(self.user)
+                return json.dumps(
+                    {
+                        "status": "sucesso",
+                        "mensagem": f"Cadastro atualizado com o nome {self.user.name}.",
+                        "nome": self.user.name,
+                    },
+                    ensure_ascii=False,
+                )
+
             elif tool_name == "agendar_servico":
                 if not self.user:
                     return json.dumps({"erro": "Cliente não identificado para o agendamento."}, ensure_ascii=False)
+
+                nome_cliente = str(arguments.get("nome_cliente") or "").strip()
+                if nome_cliente and nome_cliente.lower() not in {"cliente", "atendente"}:
+                    self.user.name = nome_cliente[:120]
+                    self.db.commit()
+                    self.db.refresh(self.user)
 
                 serv_id = int(arguments["servico_id"])
                 prof_id = int(arguments["profissional_id"])
