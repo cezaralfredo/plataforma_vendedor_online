@@ -497,3 +497,25 @@ async def test_service_subagent_verificar_horarios_without_prof_id_and_weekday_h
     assert parsed["status"] == "sucesso"
     assert "disponibilidade_por_profissional" in parsed
     assert "erro" not in parsed
+
+
+@pytest.mark.asyncio
+async def test_create_charge_direct_pix_sets_created_at_and_updated_at(db_session: Session):
+    entities = seed_data(db_session)
+    cs = CompanySettings(
+        company_name="Dra Larissa",
+        default_gateway="direct_pix",
+        pix_key="pix@dralarissaalmeida.com.br",
+        pix_merchant_name="Dra Larissa",
+        pix_merchant_city="Fortaleza",
+    )
+    db_session.add(cs)
+    db_session.commit()
+
+    apt = seed_appointment(db_session, entities)
+    svc = PaymentService(db_session)
+    payment = await svc.create_charge(apt.id, billing_type="pix")
+    assert payment.id is not None
+    assert payment.created_at is not None
+    assert payment.updated_at is not None
+    assert payment.invoice_url is not None and payment.invoice_url.startswith("000201")

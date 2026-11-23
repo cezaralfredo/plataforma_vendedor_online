@@ -256,14 +256,18 @@ class PaymentService:
             if concurrent_payment:
                 return concurrent_payment
 
+            now = datetime.now(UTC)
             payment = Payment(
                 appointment_id=appointment.id,
                 user_id=appointment.user_id,
+                description=charge_desc,
                 asaas_payment_id=gateway_payment_id,
                 amount_cents=value_cents,
                 billing_type=billing_type,
                 status=result_status,
                 invoice_url=result_invoice_url,
+                created_at=now,
+                updated_at=now,
             )
             self.db.add(payment)
             locked_appointment.status = (

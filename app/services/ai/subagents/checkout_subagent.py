@@ -227,5 +227,6 @@ class CheckoutSubagent(BaseSubagent):
             return json.dumps({"erro": f"Ferramenta desconhecida: {tool_name}"}, ensure_ascii=False)
 
         except Exception as exc:
+            self.db.rollback()
             logger.exception("Erro no CheckoutSubagent: %s", exc)
             return json.dumps({"erro": f"Erro interno ao processar cobrança: {exc!s}"}, ensure_ascii=False)

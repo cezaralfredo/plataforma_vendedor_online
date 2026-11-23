@@ -365,5 +365,6 @@ class ServiceSubagent(BaseSubagent):
             return json.dumps({"erro": f"Ferramenta desconhecida: {tool_name}"}, ensure_ascii=False)
 
         except Exception as exc:
+            self.db.rollback()
             logger.exception("Erro ao executar ferramenta %s no ServiceSubagent: %s", tool_name, exc)
             return json.dumps({"erro": f"Erro interno ao processar {tool_name}: {exc!s}"}, ensure_ascii=False)
