@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import settings as app_settings
 from app.models.company_settings import CompanySettings
 from app.services.company_settings_service import CompanySettingsService
+from app.services.whatsapp.base import InboundMessage
 
 logger = logging.getLogger(__name__)
 
@@ -529,4 +530,161 @@ class AudioTranscriptionService:
                 )
         except Exception as exc:
             logger.error("Erro ao baixar áudio do WhatsApp: %s", exc)
+        return None
+
+    def _decode_base64_audio(self, raw_b64: str) -> bytes | None:
+        cleaned = (raw_b64 or "").strip()
+        if not cleaned:
+            return None
+        if "," in cleaned and cleaned.lower().startswith("data:"):
+            cleaned = cleaned.split(",", 1)[1].strip()
+        try:
+            decoded = base64.b64decode(cleaned, validate=False)
+        except Exception as exc:
+            logger.warning("Falha ao decodificar áudio em base64: %s", exc)
+            return None
+        if len(decoded) > MAX_AUDIO_DOWNLOAD_BYTES:
+            logger.warning(
+                "Áudio em base64 ignorado: excede limite de %d bytes.",
+                MAX_AUDIO_DOWNLOAD_BYTES,
+            )
+            return None
+        return decoded
+
+    async def _fetch_evolution_decrypted_audio(
+        self, inbound: InboundMessage
+    ) -> tuple[bytes, str | None] | None:
+        evo_base = self._effective_evolution_base_url()
+        evo_instance = str(getattr(self.company_settings, "evolution_instance", None) or "").strip()
+        evo_key = str(getattr(self.company_settings, "evolution_api_key", None) or "").strip()
+        if not evo_base or not evo_instance:
+            return None
+
+        raw_payload = inbound.raw_payload or {}
+        body = raw_payload.get("data") or raw_payload
+        key = body.get("key") if isinstance(body, dict) else None
+        if not isinstance(key, dict) or not key.get("id"):
+            if not inbound.message_id:
+                return None
+            key = {"id": inbound.message_id}
+
+        url = f"{evo_base}/chat/getBase64FromMediaMessage/{evo_instance}"
+        headers = {"Content-Type": "application/json"}
+        if evo_key:
+            headers["apikey"] = evo_key
+
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                res = await client.post(
+                    url,
+                    headers=headers,
+                    json={"message": {"key": key}, "convertToMp4": False},
+                )
+                if res.status_code in (200, 201):
+                    data = res.json() if res.text else {}
+                    b64 = data.get("base64")
+                    if isinstance(b64, str) and b64.strip():
+                        decoded = self._decode_base64_audio(b64)
+                        if decoded:
+                            mimetype = data.get("mimetype") or inbound.media_mimetype
+                            return decoded, str(mimetype) if mimetype else None
+                else:
+                    logger.warning(
+                        "Evolution getBase64FromMediaMessage retornou HTTP %s", res.status_code
+                    )
+        except Exception as exc:
+            logger.error("Erro ao obter áudio descriptografado na Evolution API: %s", exc)
+        return None
+
+    async def _resolve_meta_media_url(self, media_id: str) -> tuple[str | None, str | None]:
+        meta_token = str(getattr(self.company_settings, "meta_access_token", None) or "").strip()
+        if not meta_token or not media_id:
+            return None, None
+
+        url = f"https://graph.facebook.com/v21.0/{media_id}"
+        headers = {"Authorization": f"Bearer {meta_token}"}
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                res = await client.get(url, headers=headers)
+                if res.status_code == 200:
+                    data = res.json()
+                    media_url = data.get("url")
+                    mime_type = data.get("mime_type")
+                    return (
+                        str(media_url) if media_url else None,
+                        str(mime_type) if mime_type else None,
+                    )
+                logger.warning(
+                    "Meta Graph API retornou HTTP %s ao resolver media_id=%s",
+                    res.status_code,
+                    media_id,
+                )
+        except Exception as exc:
+            logger.error("Erro ao resolver URL de mídia na Meta Cloud API: %s", exc)
+        return None, None
+
+    async def transcribe_inbound_audio(self, inbound: InboundMessage) -> str | None:
+        """
+        Orquestra a obtenção e transcrição de áudio para qualquer canal WhatsApp suportado:
+        - Base64 direto no webhook (ex.: Evolution com WEBHOOK_BASE64=true)
+        - Meta Cloud API (resolve audio.id via Graph API + download autenticado)
+        - Evolution API (descriptografa via getBase64FromMediaMessage, com fallback para URL)
+        - WAHA / genérico (download autenticado com normalização de URL)
+        """
+        if getattr(inbound, "media_type", None) != "audio":
+            return None
+
+        # 1. Base64 já enviado no webhook (Evolution WEBHOOK_BASE64=true)
+        raw_b64 = getattr(inbound, "media_base64", None)
+        if raw_b64:
+            decoded = self._decode_base64_audio(raw_b64)
+            if decoded:
+                return await self.transcribe_audio_bytes(
+                    decoded,
+                    filename="audio.ogg",
+                    content_type=getattr(inbound, "media_mimetype", None),
+                )
+
+        provider = (inbound.provider or "").lower()
+
+        # 2. Meta Cloud API Oficial (resolve media_id -> URL temporária -> download com Bearer)
+        if provider == "meta" and getattr(inbound, "media_id", None):
+            resolved_url, _resolved_mime = await self._resolve_meta_media_url(str(inbound.media_id))
+            if resolved_url:
+                meta_token = str(
+                    getattr(self.company_settings, "meta_access_token", None) or ""
+                ).strip()
+                auth = {"Authorization": f"Bearer {meta_token}"} if meta_token else None
+                return await self.download_and_transcribe(
+                    resolved_url,
+                    auth_header=auth,
+                    provider="meta",
+                )
+            return None
+
+        # 3. Evolution API (obtém áudio descriptografado via endpoint oficial)
+        if provider == "evolution":
+            decrypted = await self._fetch_evolution_decrypted_audio(inbound)
+            if decrypted:
+                audio_bytes, mime_type = decrypted
+                return await self.transcribe_audio_bytes(
+                    audio_bytes,
+                    filename="audio.ogg",
+                    content_type=mime_type or getattr(inbound, "media_mimetype", None),
+                )
+            # Fallback para URL direta apenas se não for arquivo criptografado .enc do CDN WhatsApp
+            if inbound.media_url and ".enc" not in urlparse(inbound.media_url).path.lower():
+                return await self.download_and_transcribe(
+                    inbound.media_url,
+                    provider="evolution",
+                )
+            return None
+
+        # 4. WAHA ou outro provedor com media_url direta
+        if inbound.media_url:
+            return await self.download_and_transcribe(
+                inbound.media_url,
+                provider=inbound.provider,
+            )
+
         return None

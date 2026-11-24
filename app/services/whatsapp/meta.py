@@ -181,6 +181,9 @@ class MetaWhatsAppProvider(BaseWhatsAppProvider):
             return None
 
         text = ""
+        media_type = "text"
+        media_id: str | None = None
+        media_mimetype: str | None = None
         msg_type = msg.get("type")
         if msg_type == "text":
             text = msg.get("text", {}).get("body", "")
@@ -190,6 +193,12 @@ class MetaWhatsAppProvider(BaseWhatsAppProvider):
             text = btn.get("title") or btn.get("id") or ""
         elif msg_type == "image":
             text = msg.get("image", {}).get("caption", "")
+        elif msg_type == "audio":
+            audio_obj = msg.get("audio") or {}
+            media_type = "audio"
+            media_id = str(audio_obj.get("id") or "").strip() or None
+            media_mimetype = str(audio_obj.get("mime_type") or "audio/ogg").strip()
+            text = "[Mensagem de áudio recebida]"
 
         text = text.strip()
         if not text:
@@ -203,6 +212,9 @@ class MetaWhatsAppProvider(BaseWhatsAppProvider):
             sender_name=sender_name or "Cliente",
             text=text,
             message_id=msg_id,
+            media_type=media_type,
+            media_id=media_id,
+            media_mimetype=media_mimetype,
             is_from_me=is_from_me,
             raw_payload=payload,
         )

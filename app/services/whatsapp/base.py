@@ -13,6 +13,9 @@ class InboundMessage(BaseModel):
     message_id: str
     media_type: str | None = "text"
     media_url: str | None = None
+    media_id: str | None = None
+    media_base64: str | None = None
+    media_mimetype: str | None = None
     is_from_me: bool = False
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     raw_payload: dict[str, Any] = Field(default_factory=dict)
