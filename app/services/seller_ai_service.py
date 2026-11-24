@@ -221,11 +221,14 @@ class SellerAIService:
             )
             return ""
 
-        # Se for mensagem de áudio, transcreve com Whisper
+        # Se for mensagem de áudio, transcreve com Whisper / OpenRouter / Gemini
         if getattr(inbound, "media_type", None) == "audio" and inbound.media_url:
             try:
                 from app.services.whatsapp.transcription_service import AudioTranscriptionService
-                transcription = await AudioTranscriptionService(self.db).download_and_transcribe(inbound.media_url)
+                transcription = await AudioTranscriptionService(self.db).download_and_transcribe(
+                    inbound.media_url,
+                    provider=inbound.provider,
+                )
                 if transcription:
                     text = transcription
                     logger.info("Áudio do WhatsApp (%s) transcrito com sucesso: '%s'", phone, text)

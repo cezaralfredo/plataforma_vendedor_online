@@ -398,7 +398,9 @@ async def test_e2e_whisper_audio_inbound_transcription(e2e_salon_db):
         reply = await seller_ai.handle_inbound_message(inbound_audio)
 
         assert "Temos sim!" in reply
-        mock_transcribe.assert_called_once_with("https://waha.test/audio/voz_cliente.ogg")
+        mock_transcribe.assert_called_once_with(
+            "https://waha.test/audio/voz_cliente.ogg", provider="waha"
+        )
 
         # Verifica se o texto transcrito foi gravado na tabela chat_messages
         msg = db.query(ChatMessage).filter(ChatMessage.phone == user.phone, ChatMessage.role == "user").first()
