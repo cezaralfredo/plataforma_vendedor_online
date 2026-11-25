@@ -409,6 +409,41 @@ async def test_e2e_whisper_audio_inbound_transcription(e2e_salon_db):
 
 
 @pytest.mark.asyncio
+async def test_e2e_archived_user_is_reactivated_on_inbound_whatsapp(e2e_salon_db):
+    db: Session = e2e_salon_db["db"]
+    user: User = e2e_salon_db["user"]
+
+    # Simula cliente arquivado/excluído no painel (/admin/clients)
+    user.active = False
+    user.custom_fields = {"ai_paused_until": (datetime.now(UTC) + timedelta(minutes=30)).isoformat()}
+    db.commit()
+
+    inbound = InboundMessage(
+        message_id="archived-user-msg-001",
+        sender_phone=user.phone,
+        sender_name=user.name,
+        text="Oi, quero agendar um horário",
+        provider="waha",
+    )
+
+    seller_ai = SellerAIService(db)
+
+    with (
+        patch("app.services.ai.orchestrator.SalonAIOrchestrator.process_message", new_callable=AsyncMock) as mock_orch,
+        patch("app.services.whatsapp.gateway.WhatsAppGatewayService.send_text", new_callable=AsyncMock) as mock_send,
+    ):
+        mock_orch.return_value = "Olá! Claro, qual serviço você deseja agendar?"
+        mock_send.return_value = SendMessageResult(success=True, message_id="out-archived-1", provider="waha")
+
+        reply = await seller_ai.handle_inbound_message(inbound)
+
+    db.refresh(user)
+    assert user.active is True
+    assert "ai_paused_until" not in (user.custom_fields or {})
+    assert "qual serviço" in reply.lower()
+
+
+@pytest.mark.asyncio
 async def test_e2e_asaas_payment_webhook_dispatches_direct_whatsapp(e2e_salon_db):
     db: Session = e2e_salon_db["db"]
     user: User = e2e_salon_db["user"]

@@ -44,7 +44,33 @@ class SellerAIService:
         user = self.user_service.find_by_phone(phone)
         clean_incoming_name = (name or "").strip()
         generic_names = {"", "cliente", "atendente", "usuário", "usuario"}
-        is_valid_incoming = bool(clean_incoming_name) and clean_incoming_name.lower() not in generic_names and not clean_incoming_name.isdigit()
+        is_valid_incoming = (
+            bool(clean_incoming_name)
+            and clean_incoming_name.lower() not in generic_names
+            and not clean_incoming_name.isdigit()
+        )
+
+        # Se o cliente foi arquivado/desativado (active=False), reativa automaticamente ao retomar contato
+        if not user:
+            inactive_user = self.user_service.get_by_phone(phone)
+            if inactive_user is not None:
+                inactive_user.active = True
+                if is_valid_incoming and (
+                    (inactive_user.name or "").strip().lower() in generic_names
+                    or (inactive_user.name or "").strip().isdigit()
+                ):
+                    inactive_user.name = clean_incoming_name[:120]
+                custom_fields = dict(inactive_user.custom_fields or {})
+                custom_fields.pop("ai_paused_until", None)
+                inactive_user.custom_fields = custom_fields
+                self.db.commit()
+                self.db.refresh(inactive_user)
+                logger.info(
+                    "Cliente arquivado #%s (%s) reativado automaticamente ao retomar contato pelo WhatsApp.",
+                    inactive_user.id,
+                    phone,
+                )
+                return inactive_user
 
         if not user:
             clean_name = clean_incoming_name if is_valid_incoming else "Cliente"
@@ -59,8 +85,15 @@ class SellerAIService:
             except Exception as exc:
                 self.db.rollback()
                 logger.warning("Erro ao cadastrar novo cliente via WhatsApp: %s", exc)
-                user = self.user_service.find_by_phone(phone)
-        elif is_valid_incoming and ((user.name or "").strip().lower() in generic_names or (user.name or "").strip().isdigit()):
+                user = self.user_service.get_by_phone(phone)
+                if user is not None and not user.active:
+                    user.active = True
+                    self.db.commit()
+                    self.db.refresh(user)
+        elif is_valid_incoming and (
+            (user.name or "").strip().lower() in generic_names
+            or (user.name or "").strip().isdigit()
+        ):
             try:
                 user.name = clean_incoming_name[:120]
                 self.db.commit()
