@@ -97,6 +97,17 @@ class WhatsAppGatewayService:
             self._persist_sent_message_id(result.message_id)
         return result
 
+    async def set_typing(
+        self, phone: str, is_typing: bool = True, provider_name: str | None = None
+    ) -> None:
+        provider = self.get_provider(provider_name)
+        typing_fn = getattr(provider, "set_typing", None)
+        if callable(typing_fn):
+            try:
+                await typing_fn(phone, is_typing=is_typing)
+            except Exception as exc:
+                logger.debug("Falha ao enviar indicador de digitação (%s): %s", provider.name, exc)
+
     async def send_image(
         self,
         phone: str,

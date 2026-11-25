@@ -104,6 +104,39 @@ class SellerAIService:
             raise RuntimeError("Não foi possível localizar ou cadastrar o cliente.")
         return user
 
+    async def _dispatch_whatsapp_text(
+        self, phone: str, text: str, provider_name: str | None
+    ) -> None:
+        """
+        Envia a resposta no WhatsApp dividida em blocos naturais (2 a 4 bolhas quando longa),
+        com pausa curta e indicador 'digitando...' entre os blocos.
+        """
+        import asyncio
+
+        from app.services.whatsapp.message_splitter import (
+            compute_typing_delay,
+            split_whatsapp_message,
+        )
+
+        chunks = split_whatsapp_message(text)
+        if not chunks:
+            return
+
+        for idx, chunk in enumerate(chunks):
+            if idx > 0:
+                delay = compute_typing_delay(chunk)
+                if delay > 0:
+                    try:
+                        await self.gateway.set_typing(phone, is_typing=True, provider_name=provider_name)
+                    except Exception as exc:
+                        logger.debug("Indicador startTyping ignorado: %s", exc)
+                    await asyncio.sleep(delay)
+                    try:
+                        await self.gateway.set_typing(phone, is_typing=False, provider_name=provider_name)
+                    except Exception as exc:
+                        logger.debug("Indicador stopTyping ignorado: %s", exc)
+            await self.gateway.send_text(phone, chunk, provider_name=provider_name)
+
     def _record_chat(self, phone: str, role: str, content: str, provider: str | None = None) -> None:
         msg = ChatMessage(
             phone=phone,
@@ -325,7 +358,7 @@ class SellerAIService:
                     )
                 self._record_chat(phone, "assistant", response_text, inbound.provider)
                 try:
-                    await self.gateway.send_text(phone, response_text, provider_name=inbound.provider)
+                    await self._dispatch_whatsapp_text(phone, response_text, provider_name=inbound.provider)
                 except Exception as exc:
                     logger.error("Erro ao despachar fast_handoff_human: %s", exc)
                 return response_text
@@ -345,14 +378,14 @@ class SellerAIService:
                             "Seu agendamento/pedido está 100% confirmado. Muito obrigado pela confiança! ✨💖"
                         )
                     else:
-                        link_pix = f"\n👉 Link do pagamento: {recent_payment.invoice_url}" if recent_payment.invoice_url else ""
+                        link_pix = f"\n\n{recent_payment.invoice_url}" if recent_payment.invoice_url else ""
                         response_text = (
                             f"Olá, {user.name or 'Cliente'}! Estou acompanhando seu pagamento de *{valor_str}* no sistema.\n\n"
                             f"⏳ Assim que o banco confirmar a liquidação do PIX, seu agendamento/pedido será atualizado automaticamente aqui!{link_pix}"
                         )
                     self._record_chat(phone, "assistant", response_text, inbound.provider)
                     try:
-                        await self.gateway.send_text(phone, response_text, provider_name=inbound.provider)
+                        await self._dispatch_whatsapp_text(phone, response_text, provider_name=inbound.provider)
                     except Exception as exc:
                         logger.error("Erro ao despachar fast_check_pix: %s", exc)
                     return response_text
@@ -372,7 +405,7 @@ class SellerAIService:
                         )
                     self._record_chat(phone, "assistant", response_text, inbound.provider)
                     try:
-                        await self.gateway.send_text(phone, response_text, provider_name=inbound.provider)
+                        await self._dispatch_whatsapp_text(phone, response_text, provider_name=inbound.provider)
                     except Exception as exc:
                         logger.error("Erro ao despachar fast_greeting: %s", exc)
                     return response_text
@@ -393,9 +426,9 @@ class SellerAIService:
         # Registra a resposta do assistente no histórico
         self._record_chat(phone, "assistant", response_text, inbound.provider)
 
-        # Envia a mensagem de volta pelo canal WhatsApp do remetente
+        # Envia a mensagem de volta pelo canal WhatsApp do remetente (dividida em blocos naturais se longa)
         try:
-            await self.gateway.send_text(phone, response_text, provider_name=inbound.provider)
+            await self._dispatch_whatsapp_text(phone, response_text, provider_name=inbound.provider)
         except Exception as exc:
             logger.error("Erro ao despachar resposta via WhatsApp Gateway (%s): %s", inbound.provider, exc)
 

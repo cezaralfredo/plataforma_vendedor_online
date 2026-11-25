@@ -95,6 +95,20 @@ class WahaWhatsAppProvider(BaseWhatsAppProvider):
                 error=str(exc),
             )
 
+    async def set_typing(self, phone: str, is_typing: bool = True) -> None:
+        """Envia indicador best-effort de 'digitando...' via WAHA entre bolhas de resposta."""
+        if not self.base_url:
+            return
+        chat_id = self._format_chat_id(phone)
+        endpoint = "startTyping" if is_typing else "stopTyping"
+        url = f"{self.base_url}/api/{endpoint}"
+        payload = {"session": self.session, "chatId": chat_id}
+        try:
+            async with httpx.AsyncClient(timeout=2.5) as client:
+                await client.post(url, json=payload, headers=self._headers())
+        except Exception as exc:
+            logger.debug("WAHA %s ignorado: %s", endpoint, exc)
+
     async def send_image(
         self, phone: str, image_url: str, caption: str | None = None
     ) -> SendMessageResult:
