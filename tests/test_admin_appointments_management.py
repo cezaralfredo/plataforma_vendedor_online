@@ -148,8 +148,8 @@ def test_admin_cannot_delete_appointment_with_payment(
     assert "pagamento" in response.json()["detail"].lower()
 
 
-@pytest.mark.parametrize("status", ["overdue", "cancelled"])
-def test_admin_can_delete_unpaid_terminal_payment_appointment(
+@pytest.mark.parametrize("status", ["pending", "overdue", "cancelled"])
+def test_admin_can_delete_cancelled_appointment_with_unpaid_payment(
     anonymous_client: TestClient, db_session: Session, status: str
 ):
     appointment = seed_appointment(db_session, seed_data(db_session))
@@ -171,8 +171,8 @@ def test_admin_can_delete_unpaid_terminal_payment_appointment(
     assert db_session.query(NotificationLog).count() == 0
 
 
-@pytest.mark.parametrize("status", ["pending", "received", "confirmed", "refunded"])
-def test_admin_preserves_protected_payments(
+@pytest.mark.parametrize("status", ["received", "confirmed", "refunded"])
+def test_admin_can_delete_cancelled_appointment_preserving_paid_history(
     anonymous_client: TestClient, db_session: Session, status: str
 ):
     appointment = seed_appointment(db_session, seed_data(db_session))
@@ -180,14 +180,20 @@ def test_admin_preserves_protected_payments(
     appointment.status = "cancelled"
     payment.status = status
     db_session.commit()
+    appointment_id, payment_id = appointment.id, payment.id
+
     response = anonymous_client.delete(
-        f"/admin/api/appointments/{appointment.id}", headers=_admin_headers()
+        f"/admin/api/appointments/{appointment_id}", headers=_admin_headers()
     )
-    assert response.status_code == 409
-    assert db_session.get(Payment, payment.id) is not None
+    assert response.status_code == 204
+    db_session.expire_all()
+    assert db_session.get(Appointment, appointment_id) is None
+    preserved = db_session.get(Payment, payment_id)
+    assert preserved is not None
+    assert preserved.appointment_id is None
 
 
-def test_admin_preserves_overdue_payment_with_receipt_history(
+def test_admin_can_delete_cancelled_appointment_with_overdue_receipt_preserving_payment(
     anonymous_client: TestClient, db_session: Session
 ):
     appointment = seed_appointment(db_session, seed_data(db_session))
@@ -196,10 +202,17 @@ def test_admin_preserves_overdue_payment_with_receipt_history(
     payment.status = "overdue"
     payment.received_at = datetime.now()
     db_session.commit()
+    appointment_id, payment_id = appointment.id, payment.id
+
     response = anonymous_client.delete(
-        f"/admin/api/appointments/{appointment.id}", headers=_admin_headers()
+        f"/admin/api/appointments/{appointment_id}", headers=_admin_headers()
     )
-    assert response.status_code == 409
+    assert response.status_code == 204
+    db_session.expire_all()
+    assert db_session.get(Appointment, appointment_id) is None
+    preserved = db_session.get(Payment, payment_id)
+    assert preserved is not None
+    assert preserved.appointment_id is None
 
 
 @pytest.mark.parametrize("appointment_status", ["confirmed", "completed"])
@@ -218,18 +231,30 @@ def test_admin_preserves_confirmed_or_completed_with_overdue_charge(
     assert db_session.get(Payment, payment.id) is not None
 
 
-def test_admin_checks_all_payments_before_deleting(
+def test_admin_cancelled_appointment_unlinks_paid_and_removes_unpaid_payments(
     anonymous_client: TestClient, db_session: Session
 ):
     appointment = seed_appointment(db_session, seed_data(db_session))
-    payment = seed_payment(db_session, appointment)
+    unpaid = seed_payment(db_session, appointment)
     appointment.status = "cancelled"
-    payment.status = "overdue"
-    db_session.add(Payment(appointment_id=appointment.id, amount_cents=5000,
-                           billing_type="pix", status="received"))
-    db_session.commit()
-    response = anonymous_client.delete(
-        f"/admin/api/appointments/{appointment.id}", headers=_admin_headers()
+    unpaid.status = "overdue"
+    paid = Payment(
+        appointment_id=appointment.id,
+        amount_cents=5000,
+        billing_type="pix",
+        status="received",
     )
-    assert response.status_code == 409
-    assert db_session.query(Payment).count() == 2
+    db_session.add(paid)
+    db_session.commit()
+    appointment_id, unpaid_id, paid_id = appointment.id, unpaid.id, paid.id
+
+    response = anonymous_client.delete(
+        f"/admin/api/appointments/{appointment_id}", headers=_admin_headers()
+    )
+    assert response.status_code == 204
+    db_session.expire_all()
+    assert db_session.get(Appointment, appointment_id) is None
+    assert db_session.get(Payment, unpaid_id) is None
+    preserved_paid = db_session.get(Payment, paid_id)
+    assert preserved_paid is not None
+    assert preserved_paid.appointment_id is None

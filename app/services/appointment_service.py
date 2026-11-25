@@ -236,22 +236,39 @@ class AppointmentService:
         payments = db.query(Payment).filter(
             Payment.appointment_id == appointment_id
         ).with_for_update().all()
-        if any(
-            payment.status not in {"overdue", "cancelled"}
-            or payment.received_at is not None
-            for payment in payments
-        ):
-            raise ValueError(
-                "Não é possível excluir: há pagamento pendente ou histórico financeiro. "
-                "Somente cobranças vencidas ou canceladas, sem recebimento, permitem exclusão."
-            )
+
+        if appointment.status != "cancelled":
+            if any(
+                payment.status not in {"overdue", "cancelled"}
+                or payment.received_at is not None
+                for payment in payments
+            ):
+                raise ValueError(
+                    "Não é possível excluir: há pagamento pendente ou histórico financeiro. "
+                    "Cancele o agendamento antes de excluí-lo."
+                )
+
         try:
             db.query(NotificationLog).filter(
                 NotificationLog.appointment_id == appointment_id
             ).delete(synchronize_session="fetch")
-            db.query(Payment).filter(
-                Payment.appointment_id == appointment_id
-            ).delete(synchronize_session="fetch")
+
+            for payment in payments:
+                has_financial_history = (
+                    payment.status in {"received", "confirmed", "refunded"}
+                    or payment.received_at is not None
+                )
+                if has_financial_history:
+                    # Preserva histórico financeiro no módulo de pagamentos desvinculando do agendamento cancelado
+                    payment.appointment_id = None
+                    if payment.user_id is None:
+                        payment.user_id = appointment.user_id
+                    if not payment.description:
+                        payment.description = f"Agendamento cancelado #{appointment.id}"
+                else:
+                    db.delete(payment)
+
+            db.flush()
             db.query(Appointment).filter(
                 Appointment.id == appointment_id
             ).delete(synchronize_session="fetch")

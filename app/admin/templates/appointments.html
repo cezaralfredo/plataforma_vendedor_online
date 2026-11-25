@@ -228,7 +228,7 @@
                     <div class="flex flex-wrap gap-3 border-t border-slate-100 pt-3 text-sm font-semibold">
                         <a :href="'/admin/appointments/' + apt.id" class="text-blue-600 hover:text-blue-800">Ver detalhes</a>
                         <button x-show="apt.status === 'pending'" @click="confirmAppointment(apt.id)" class="text-emerald-600 hover:text-emerald-800">Confirmar</button>
-                        <button x-show="apt.status === 'pending' || apt.status === 'confirmed'" @click="cancelAppointment(apt.id)" class="text-rose-600 hover:text-rose-800">Cancelar</button>
+                        <button x-show="apt.status === 'pending' || apt.status === 'confirmed' || apt.status === 'awaiting_payment'" @click="cancelAppointment(apt.id)" class="text-rose-600 hover:text-rose-800">Cancelar</button>
                         <button x-show="apt.status === 'confirmed'" @click="completeAppointment(apt.id)" class="text-blue-600 hover:text-blue-800">Concluir</button>
                         <button x-show="apt.status === 'pending' || apt.status === 'cancelled'" @click="deleteAppointment(apt.id)" class="text-rose-600 hover:text-rose-800">Excluir</button>
                     </div>
@@ -299,6 +299,18 @@
                                             <button @click="deleteAppointment(apt.id)"
                                                     class="text-rose-600 hover:text-rose-800">
                                                 Excluir
+                                            </button>
+                                        </div>
+                                    </template>
+                                    <template x-if="apt.status === 'awaiting_payment'">
+                                        <div class="contents">
+                                            <button @click="confirmAppointment(apt.id)"
+                                                    class="text-emerald-600 hover:text-emerald-800">
+                                                Confirmar
+                                            </button>
+                                            <button @click="cancelAppointment(apt.id)"
+                                                    class="text-rose-600 hover:text-rose-800">
+                                                Cancelar
                                             </button>
                                         </div>
                                     </template>
@@ -560,7 +572,7 @@ function appointments() {
         async deleteAppointment(id) {
             const decision = await adminConfirm({
                 title: 'Excluir agendamento',
-                message: `Excluir o agendamento #${id}? Cobranças locais vencidas ou canceladas, sem recebimento, também serão removidas. Pagamentos pendentes ou com histórico financeiro impedem a exclusão. Esta ação não cancela cobranças no gateway de pagamento.`,
+                message: `Excluir o agendamento #${id}? Para agendamentos cancelados, cobranças não recebidas são removidas e eventuais recebimentos/estornos permanecem preservados no histórico financeiro. Esta ação não cancela cobranças no gateway de pagamento.`,
                 confirmLabel: 'Excluir agendamento',
                 destructive: true
             });
