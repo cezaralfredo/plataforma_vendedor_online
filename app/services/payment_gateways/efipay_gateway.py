@@ -106,7 +106,8 @@ class EfiPayGateway(BasePaymentGateway):
                 res.raise_for_status()
                 data = res.json()
 
-            txid = data.get("txid") or ""
+            txid = str(data.get("txid") or "")
+            prefixed_txid = f"efi:{txid}" if txid and not txid.startswith("efi:") else txid
             pix_copia_cola = data.get("pixCopiaECola")
             loc_id = data.get("loc", {}).get("id")
             qr_code_image = None
@@ -133,7 +134,7 @@ class EfiPayGateway(BasePaymentGateway):
             mapped_status = status_map.get(data.get("status"), "pending")
 
             return ChargeResult(
-                gateway_payment_id=txid,
+                gateway_payment_id=prefixed_txid,
                 status=mapped_status,
                 invoice_url=None,
                 pix_copy_paste=pix_copia_cola,
@@ -147,12 +148,13 @@ class EfiPayGateway(BasePaymentGateway):
             raise
 
     async def check_status(self, gateway_payment_id: str) -> dict[str, Any]:
+        raw_txid = gateway_payment_id.removeprefix("efi:")
         token = await self._get_access_token()
         headers = {"Authorization": f"Bearer {token}"}
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.get(
-                    f"{self.base_url}/v2/cob/{gateway_payment_id}",
+                    f"{self.base_url}/v2/cob/{raw_txid}",
                     headers=headers,
                 )
                 res.raise_for_status()

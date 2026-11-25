@@ -65,6 +65,34 @@ class PaymentService:
         self.appointment_repo = AppointmentRepository(db)
         self.payment_repo = PaymentRepository(db)
 
+    def _apply_asaas_panel_credentials(self, company_settings: Any) -> AsaasClient:
+        """Sincroniza api_key/base_url do painel no cliente Asaas quando configurados."""
+        creds = getattr(company_settings, "gateway_credentials", None) or {}
+        panel_key = (creds.get("api_key") or creds.get("asaas_api_key") or "").strip()
+        panel_url = (creds.get("base_url") or creds.get("asaas_base_url") or "").strip()
+        if panel_key and hasattr(self.asaas, "headers") and isinstance(self.asaas.headers, dict):
+            self.asaas.api_key = panel_key
+            self.asaas.headers["access_token"] = panel_key
+            if getattr(self.asaas, "_client", None) is not None:
+                self.asaas._client = None
+        if panel_url and hasattr(self.asaas, "base_url"):
+            self.asaas.base_url = panel_url.rstrip("/")
+        return self.asaas
+
+    @staticmethod
+    def _provider_from_payment_id(gateway_payment_id: str | None) -> str:
+        if not gateway_payment_id:
+            return "unknown"
+        if gateway_payment_id.startswith("mp:"):
+            return "mercadopago"
+        if gateway_payment_id.startswith("efi:"):
+            return "efipay"
+        if gateway_payment_id.startswith("direct_pix:"):
+            return "direct_pix"
+        if gateway_payment_id.startswith("manual:"):
+            return "manual"
+        return "asaas"
+
     async def ensure_asaas_customer(self, user_id: int) -> str:
         user = self.user_repo.get(user_id)
         if not user:
@@ -281,6 +309,8 @@ class PaymentService:
             self.db.refresh(payment)
             return payment
 
+        self._apply_asaas_panel_credentials(company_settings)
+
         external_reference = f"appointment:{appointment.id}"
         matches = await self.asaas.list_payments(
             external_reference=external_reference
@@ -347,8 +377,37 @@ class PaymentService:
         if not payment.asaas_payment_id:
             return payment.status
 
-        if _is_non_asaas_payment_id(payment.asaas_payment_id):
+        provider = self._provider_from_payment_id(payment.asaas_payment_id)
+        if provider in {"direct_pix", "manual"}:
             return payment.status
+
+        from app.services.company_settings_service import CompanySettingsService
+
+        company_settings = CompanySettingsService(self.db).get_or_create_default()
+
+        if provider in {"mercadopago", "efipay"}:
+            from app.services.payment_gateways import get_payment_gateway
+
+            gateway = get_payment_gateway(provider, company_settings.gateway_credentials)
+            result = await gateway.check_status(payment.asaas_payment_id)
+            new_status = str(result.get("status") or payment.status)
+            if new_status != payment.status:
+                apply_payment_state(payment, new_status, datetime.now(UTC))
+                if (
+                    new_status in {"received", "confirmed"}
+                    and payment.appointment is not None
+                    and payment.appointment_id is not None
+                    and payment.appointment.status == "confirmed"
+                ):
+                    from app.services.notification_service import NotificationService
+
+                    NotificationService(self.db).queue_payment_confirmed(
+                        payment.appointment_id, payment.id
+                    )
+                self.db.commit()
+            return new_status
+
+        self._apply_asaas_panel_credentials(company_settings)
 
         try:
             resp = await self.asaas.get_payment(payment.asaas_payment_id)
@@ -423,8 +482,20 @@ class PaymentService:
         if not payment.asaas_payment_id:
             raise ValueError("Pagamento sem identificador do gateway")
 
-        if not _is_non_asaas_payment_id(payment.asaas_payment_id):
+        provider = self._provider_from_payment_id(payment.asaas_payment_id)
+        if provider == "asaas":
+            from app.services.company_settings_service import CompanySettingsService
+
+            company_settings = CompanySettingsService(self.db).get_or_create_default()
+            self._apply_asaas_panel_credentials(company_settings)
             await self.asaas.refund_payment(payment.asaas_payment_id)
+        elif provider in {"mercadopago", "efipay"}:
+            from app.services.company_settings_service import CompanySettingsService
+            from app.services.payment_gateways import get_payment_gateway
+
+            company_settings = CompanySettingsService(self.db).get_or_create_default()
+            gateway = get_payment_gateway(provider, company_settings.gateway_credentials)
+            await gateway.refund(payment.asaas_payment_id)
         apply_payment_state(payment, "refunded", datetime.now(UTC))
         self.db.commit()
         self.db.refresh(payment)
@@ -560,6 +631,7 @@ class PaymentService:
             return payment
 
         # Fluxo Asaas padrão
+        self._apply_asaas_panel_credentials(company_settings)
         customer_id = await self.ensure_asaas_customer(user_id)
         due_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
 

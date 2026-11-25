@@ -560,7 +560,7 @@ function appointments() {
         async deleteAppointment(id) {
             const decision = await adminConfirm({
                 title: 'Excluir agendamento',
-                message: `Excluir o agendamento #${id}? Cobranças locais vencidas ou canceladas, sem recebimento, também serão removidas. Pagamentos pendentes ou com histórico financeiro impedem a exclusão. Esta ação não cancela cobranças no Asaas.`,
+                message: `Excluir o agendamento #${id}? Cobranças locais vencidas ou canceladas, sem recebimento, também serão removidas. Pagamentos pendentes ou com histórico financeiro impedem a exclusão. Esta ação não cancela cobranças no gateway de pagamento.`,
                 confirmLabel: 'Excluir agendamento',
                 destructive: true
             });

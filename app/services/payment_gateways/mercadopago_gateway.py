@@ -86,7 +86,8 @@ class MercadoPagoGateway(BasePaymentGateway):
                 res.raise_for_status()
                 data = res.json()
 
-            payment_id = str(data.get("id"))
+            raw_payment_id = str(data.get("id") or "")
+            payment_id = f"mp:{raw_payment_id}" if raw_payment_id and not raw_payment_id.startswith("mp:") else raw_payment_id
             poi = data.get("point_of_interaction", {})
             t_data = poi.get("transaction_data", {})
 
@@ -118,10 +119,11 @@ class MercadoPagoGateway(BasePaymentGateway):
             raise
 
     async def check_status(self, gateway_payment_id: str) -> dict[str, Any]:
+        raw_id = gateway_payment_id.removeprefix("mp:")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.get(
-                    f"{MP_API_BASE}/payments/{gateway_payment_id}",
+                    f"{MP_API_BASE}/payments/{raw_id}",
                     headers=self._get_headers(),
                 )
                 res.raise_for_status()
@@ -136,7 +138,7 @@ class MercadoPagoGateway(BasePaymentGateway):
                 "refunded": "refunded",
             }
             return {
-                "gateway_payment_id": str(data.get("id")),
+                "gateway_payment_id": gateway_payment_id,
                 "status": status_map.get(raw_status, "pending"),
                 "received_at": data.get("date_approved"),
                 "raw_response": data,
@@ -146,10 +148,11 @@ class MercadoPagoGateway(BasePaymentGateway):
             return {"gateway_payment_id": gateway_payment_id, "status": "pending", "error": str(exc)}
 
     async def refund(self, gateway_payment_id: str, reason: str | None = None) -> dict[str, Any]:
+        raw_id = gateway_payment_id.removeprefix("mp:")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.post(
-                    f"{MP_API_BASE}/payments/{gateway_payment_id}/refunds",
+                    f"{MP_API_BASE}/payments/{raw_id}/refunds",
                     headers=self._get_headers(),
                 )
                 res.raise_for_status()

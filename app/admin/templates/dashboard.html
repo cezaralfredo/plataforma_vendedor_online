@@ -261,15 +261,15 @@
                    x-text="systemStatus.database.status === 'connected' ? 'Conectado' : 'Indisponível'"></p>
             </div>
 
-            <!-- Asaas -->
-            <div class="p-4 rounded-xl border transition-all" :class="systemStatus.asaas.configured ? 'bg-emerald-50/60 border-emerald-200/80 text-emerald-900' : 'bg-amber-50/60 border-amber-200/80 text-amber-900'">
-                <div class="w-10 h-10 mx-auto mb-2 rounded-xl flex items-center justify-center" :class="systemStatus.asaas.configured ? 'bg-emerald-100/80 text-emerald-600' : 'bg-amber-100/80 text-amber-600'">
+            <!-- Gateway / Banco de Pagamento -->
+            <a href="/admin/settings" class="block p-4 rounded-xl border transition-all hover:shadow-xs" :class="gatewayConfigured() ? 'bg-emerald-50/60 border-emerald-200/80 text-emerald-900' : 'bg-amber-50/60 border-amber-200/80 text-amber-900'">
+                <div class="w-10 h-10 mx-auto mb-2 rounded-xl flex items-center justify-center" :class="gatewayConfigured() ? 'bg-emerald-100/80 text-emerald-600' : 'bg-amber-100/80 text-amber-600'">
                     <i class="fas fa-credit-card text-base"></i>
                 </div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Gateway Asaas</p>
-                <p class="font-semibold text-sm mt-1" :class="systemStatus.asaas.configured ? 'text-emerald-700' : 'text-amber-700'"
-                   x-text="asaasStatusLabel()"></p>
-            </div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500" x-text="gatewayTitle()"></p>
+                <p class="font-semibold text-sm mt-1" :class="gatewayConfigured() ? 'text-emerald-700' : 'text-amber-700'"
+                   x-text="gatewayStatusLabel()"></p>
+            </a>
 
             <!-- MCP -->
             <div class="p-4 rounded-xl border transition-all" :class="systemStatus.mcp.endpoint_enabled ? 'bg-emerald-50/60 border-emerald-200/80 text-emerald-900' : 'bg-slate-100/80 border-slate-200/80 text-slate-700'">
@@ -295,6 +295,7 @@ function dashboard() {
             api: {status: 'unavailable'},
             database: {status: 'unavailable'},
             asaas: {configured: false, mode: 'sandbox'},
+            payment_gateway: null,
             mcp: {endpoint_enabled: false}
         },
 
@@ -332,7 +333,24 @@ function dashboard() {
             return 'R$ ' + reais.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         },
 
-        asaasStatusLabel() {
+        gatewayConfigured() {
+            if (this.systemStatus.payment_gateway) {
+                return Boolean(this.systemStatus.payment_gateway.configured);
+            }
+            return Boolean(this.systemStatus.asaas && this.systemStatus.asaas.configured);
+        },
+
+        gatewayTitle() {
+            if (this.systemStatus.payment_gateway && this.systemStatus.payment_gateway.label) {
+                return this.systemStatus.payment_gateway.label;
+            }
+            return 'Gateway de Pagamento';
+        },
+
+        gatewayStatusLabel() {
+            if (this.systemStatus.payment_gateway && this.systemStatus.payment_gateway.detail) {
+                return this.systemStatus.payment_gateway.detail;
+            }
             const mode = this.systemStatus.asaas.mode === 'production' ? 'Produção' : 'Sandbox';
             return this.systemStatus.asaas.configured ? `Configurado · ${mode}` : `Não configurado · ${mode}`;
         }

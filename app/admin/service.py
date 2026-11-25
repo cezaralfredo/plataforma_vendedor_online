@@ -108,10 +108,115 @@ class AdminService:
             database_status = "unavailable"
 
         asaas_mode = "sandbox" if "sandbox" in settings.asaas_base_url.lower() else "production"
+        asaas_configured = bool(settings.asaas_api_key)
+        payment_gateway_status = {
+            "provider": "asaas",
+            "label": "Gateway Asaas",
+            "configured": asaas_configured,
+            "mode": asaas_mode,
+            "detail": (
+                f"Configurado · {'Produção' if asaas_mode == 'production' else 'Sandbox'}"
+                if asaas_configured
+                else f"Não configurado · {'Produção' if asaas_mode == 'production' else 'Sandbox'}"
+            ),
+        }
+
+        if database_status == "connected":
+            try:
+                from app.services.company_settings_service import CompanySettingsService
+
+                cs = CompanySettingsService(self.db).get_or_create_default()
+                gw = (cs.default_gateway or "asaas").strip().lower()
+                creds = cs.gateway_credentials or {}
+
+                gateway_labels = {
+                    "direct_pix": "PIX Direto",
+                    "inter": "Banco Inter",
+                    "nubank": "Nubank PJ",
+                    "itau": "Itaú Empresas",
+                    "bradesco": "Bradesco",
+                    "banco_do_brasil": "Banco do Brasil",
+                    "santander": "Santander",
+                    "caixa": "Caixa Econômica",
+                    "c6bank": "C6 Bank",
+                    "efipay": "Efí Bank",
+                    "asaas": "Gateway Asaas",
+                    "mercadopago": "Mercado Pago",
+                    "pagbank": "PagBank",
+                    "stone": "Stone / Pagar.me",
+                    "stripe": "Stripe",
+                    "manual": "Manual / Balcão",
+                    "none": "Sem cobrança",
+                }
+                base_label = gateway_labels.get(gw, gw.replace("_", " ").title())
+
+                if gw == "asaas":
+                    eff_key = (creds.get("api_key") or creds.get("asaas_api_key") or settings.asaas_api_key or "").strip()
+                    eff_url = (creds.get("base_url") or creds.get("asaas_base_url") or settings.asaas_base_url or "").lower()
+                    eff_mode = "sandbox" if "sandbox" in eff_url else "production"
+                    asaas_configured = bool(eff_key)
+                    asaas_mode = eff_mode
+                    payment_gateway_status = {
+                        "provider": gw,
+                        "label": base_label,
+                        "configured": asaas_configured,
+                        "mode": eff_mode,
+                        "detail": (
+                            f"Configurado · {'Produção' if eff_mode == 'production' else 'Sandbox'}"
+                            if asaas_configured
+                            else f"Não configurado · {'Produção' if eff_mode == 'production' else 'Sandbox'}"
+                        ),
+                    }
+                elif gw in {"mercadopago", "mercado_pago"}:
+                    mp_ok = bool((creds.get("access_token") or "").strip())
+                    payment_gateway_status = {
+                        "provider": "mercadopago",
+                        "label": base_label,
+                        "configured": mp_ok,
+                        "mode": "production",
+                        "detail": "Configurado · Produção" if mp_ok else "Token não configurado",
+                    }
+                elif gw in {"efipay", "efi", "gerencianet"}:
+                    efi_ok = bool((creds.get("client_id") or "").strip() and (creds.get("client_secret") or "").strip())
+                    efi_mode = "sandbox" if creds.get("sandbox") else "production"
+                    payment_gateway_status = {
+                        "provider": "efipay",
+                        "label": base_label,
+                        "configured": efi_ok,
+                        "mode": efi_mode,
+                        "detail": (
+                            f"Configurado · {'Produção' if efi_mode == 'production' else 'Sandbox'}"
+                            if efi_ok
+                            else "Credenciais não configuradas"
+                        ),
+                    }
+                elif gw in {"manual", "none", "in_person", "balcao"}:
+                    payment_gateway_status = {
+                        "provider": gw,
+                        "label": base_label,
+                        "configured": True,
+                        "mode": "local",
+                        "detail": "Ativo · Presencial" if gw != "none" else "Desativado",
+                    }
+                else:
+                    pix_ok = bool((creds.get("pix_key") or "").strip() or (creds.get("pix_copy_paste") or "").strip())
+                    bank_name = (creds.get("bank_name") or "").strip()
+                    display_label = f"PIX Direto · {bank_name}" if gw == "direct_pix" and bank_name else base_label
+                    payment_gateway_status = {
+                        "provider": gw,
+                        "label": display_label,
+                        "configured": pix_ok,
+                        "mode": "direct_pix",
+                        "detail": "Chave PIX ativa" if pix_ok else "Chave PIX pendente",
+                    }
+            except SQLAlchemyError:
+                self.db.rollback()
+
         return {
             "api": {"status": "online"},
             "database": {"status": database_status},
-            "asaas": {"configured": bool(settings.asaas_api_key), "mode": asaas_mode},
+            "asaas": {"configured": asaas_configured, "mode": asaas_mode},
+            "payment_gateway": payment_gateway_status,
             "mcp": {"endpoint_enabled": True},
         }
 
@@ -1338,7 +1443,7 @@ class AdminService:
             "Valor (R$)",
             "ID Pagamento",
             "Status Pagamento",
-            "ID Asaas",
+            "ID Gateway",
             "Data Pagamento",
             "Observações",
         ])

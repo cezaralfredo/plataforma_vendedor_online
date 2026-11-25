@@ -156,7 +156,7 @@ async def test_mercadopago_gateway_create_charge():
         res = await gateway.create_charge(req)
 
         assert mock_post.called
-        assert res.gateway_payment_id == "987654321"
+        assert res.gateway_payment_id == "mp:987654321"
         assert res.status == "pending"
         assert "mercadopago" in res.pix_copy_paste
         assert "ticket" in res.invoice_url
@@ -205,7 +205,7 @@ async def test_efipay_gateway_create_charge():
         res = await gateway.create_charge(req)
 
         assert mock_post.call_count == 2
-        assert res.gateway_payment_id == "txid_efi_998877"
+        assert res.gateway_payment_id == "efi:txid_efi_998877"
         assert res.status == "pending"
         assert "efipay" in res.pix_copy_paste
 

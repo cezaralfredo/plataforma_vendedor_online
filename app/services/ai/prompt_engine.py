@@ -56,6 +56,21 @@ class SalonPromptEngine:
         welcome_message = (company_settings.welcome_message or "").strip()
         payment_required = bool(getattr(company_settings, "payment_required", True))
         require_cpf = bool(getattr(company_settings, "require_cpf", False))
+        default_gateway = (getattr(company_settings, "default_gateway", None) or "direct_pix").strip().lower()
+        accepted_methods_raw = getattr(company_settings, "accepted_payment_methods", None) or ["pix"]
+        method_labels = {
+            "pix": "PIX",
+            "credit_card": "Cartão de Crédito",
+            "debit_card": "Cartão de Débito",
+            "boleto": "Boleto Bancário",
+            "cash": "Dinheiro",
+            "bank_transfer": "Transferência Bancária",
+            "link": "Link de Pagamento",
+            "in_person": "Presencial no Balcão",
+        }
+        accepted_methods_str = ", ".join(
+            method_labels.get(str(m).lower(), str(m)) for m in accepted_methods_raw
+        ) or "PIX"
         human_support_name = (getattr(company_settings, "human_support_name", None) or "Equipe de Atendimento").strip()
 
         raw_user_name = _sanitize_prompt_field(user.name if user else None, fallback="", max_len=60)
@@ -113,9 +128,9 @@ class SalonPromptEngine:
             )
 
         payment_rule = (
-            "- **Pagamento antecipado exigido:** após criar o agendamento, ofereça a geração do pagamento com `gerar_cobranca_pix_agendamento`."
-            if payment_required
-            else "- **Pagamento antecipado NÃO exigido:** o agendamento é confirmado diretamente sem obrigatoriedade de pagamento prévio (só gere cobrança se o cliente solicitar)."
+            f"- **Pagamento antecipado exigido** (meio principal: `{default_gateway}`; formas aceitas: {accepted_methods_str}): após criar o agendamento, ofereça a geração do pagamento com `gerar_cobranca_pix_agendamento`."
+            if payment_required and default_gateway not in {"manual", "none"}
+            else f"- **Pagamento antecipado NÃO exigido** (formas aceitas: {accepted_methods_str}): o agendamento é confirmado diretamente sem obrigatoriedade de pagamento prévio (só gere cobrança se o cliente solicitar)."
         )
         cpf_rule = (
             "- **CPF obrigatório:** solicite o CPF do cliente antes de concluir o agendamento/cadastro."

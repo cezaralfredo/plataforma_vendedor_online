@@ -10,7 +10,7 @@ from app.models.product import Product
 from app.models.user import User
 from app.services.ai.providers.base import ToolDefinition
 from app.services.ai.subagents.base import BaseSubagent
-from app.services.payment_service import PaymentService
+from app.services.payment_service import PaymentService, _is_non_asaas_payment_id
 from app.services.product_service import ProductService
 
 logger = logging.getLogger(__name__)
@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 class CheckoutSubagent(BaseSubagent):
     """
-    Subagente especialista em Checkout, Cobranças PIX via Asaas e
-    Verificação de Pagamentos para Serviços de Salão e Produtos de Beleza.
+    Subagente especialista em Checkout, Cobranças PIX (multi-gateway) e
+    Verificação de Pagamentos para Serviços e Produtos.
     """
 
     def __init__(
@@ -38,7 +38,7 @@ class CheckoutSubagent(BaseSubagent):
         return [
             ToolDefinition(
                 name="gerar_cobranca_pix_agendamento",
-                description="Gera uma cobrança PIX no Asaas para confirmação de um agendamento de salão/estética.",
+                description="Gera uma cobrança PIX no gateway de pagamento configurado para confirmação de um agendamento.",
                 parameters={
                     "type": "object",
                     "properties": {
@@ -52,13 +52,13 @@ class CheckoutSubagent(BaseSubagent):
             ),
             ToolDefinition(
                 name="gerar_cobranca_pix_produto",
-                description="Gera uma cobrança PIX no Asaas para a compra de um produto de salão/estética.",
+                description="Gera uma cobrança PIX no gateway de pagamento configurado para a compra de um produto.",
                 parameters={
                     "type": "object",
                     "properties": {
                         "produto_id": {
                             "type": "integer",
-                            "description": "ID numérico do produto de salão a ser comprado.",
+                            "description": "ID numérico do produto a ser comprado.",
                         },
                         "quantidade": {
                             "type": "integer",
@@ -70,7 +70,7 @@ class CheckoutSubagent(BaseSubagent):
             ),
             ToolDefinition(
                 name="verificar_status_pagamento",
-                description="Verifica se o pagamento de um agendamento ou produto foi confirmado no Asaas.",
+                description="Verifica se o pagamento de um agendamento ou produto foi confirmado no gateway de pagamento.",
                 parameters={
                     "type": "object",
                     "properties": {
@@ -105,7 +105,7 @@ class CheckoutSubagent(BaseSubagent):
                 pix_code = None
                 if payment.invoice_url and payment.invoice_url.startswith("000201"):
                     pix_code = payment.invoice_url
-                elif payment.asaas_payment_id and not str(payment.asaas_payment_id).startswith("direct_pix:"):
+                elif payment.asaas_payment_id and not _is_non_asaas_payment_id(payment.asaas_payment_id):
                     try:
                         pix_data = await self.payment_service.asaas.get_pix_qr_code(payment.asaas_payment_id)
                         pix_code = pix_data.get("payload") if pix_data else None
@@ -157,7 +157,7 @@ class CheckoutSubagent(BaseSubagent):
                 pix_code = None
                 if payment.invoice_url and payment.invoice_url.startswith("000201"):
                     pix_code = payment.invoice_url
-                elif payment.asaas_payment_id and not str(payment.asaas_payment_id).startswith("direct_pix:"):
+                elif payment.asaas_payment_id and not _is_non_asaas_payment_id(payment.asaas_payment_id):
                     try:
                         pix_data = await self.payment_service.asaas.get_pix_qr_code(payment.asaas_payment_id)
                         pix_code = pix_data.get("payload") if pix_data else None
@@ -211,7 +211,7 @@ class CheckoutSubagent(BaseSubagent):
                     try:
                         await self.payment_service.check_payment_status(payment)
                     except Exception as e:
-                        logger.warning("Erro ao verificar status no Asaas: %s", e)
+                        logger.warning("Erro ao verificar status no gateway de pagamento: %s", e)
 
                 confirmado = payment.status in ("received", "confirmed")
 

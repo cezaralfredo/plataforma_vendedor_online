@@ -49,6 +49,14 @@ class AdminAsaasStatus(BaseModel):
     mode: Literal["sandbox", "production"]
 
 
+class AdminPaymentGatewayStatus(BaseModel):
+    provider: str
+    label: str
+    configured: bool
+    mode: str
+    detail: str
+
+
 class AdminMCPStatus(BaseModel):
     endpoint_enabled: bool
 
@@ -57,6 +65,7 @@ class AdminSystemStatus(BaseModel):
     api: AdminSystemComponentStatus
     database: AdminSystemComponentStatus
     asaas: AdminAsaasStatus
+    payment_gateway: AdminPaymentGatewayStatus | None = None
     mcp: AdminMCPStatus
 
 
